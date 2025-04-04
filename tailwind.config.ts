@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,17 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Fleet Key Management System custom colors
+				navy: {
+					DEFAULT: '#0A2647',
+					light: '#144272',
+					lighter: '#205295'
+				},
+				keyStatus: {
+					available: '#4CAF50',   // Green
+					issued: '#FFA000',      // Amber
+					missing: '#F44336'      // Red
 				}
 			},
 			borderRadius: {
