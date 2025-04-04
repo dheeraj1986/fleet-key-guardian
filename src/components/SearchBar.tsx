@@ -7,17 +7,25 @@ import { Search } from "lucide-react";
 interface SearchBarProps {
   onSearch: (query: string) => void;
   placeholder?: string;
+  initialValue?: string;
 }
 
 const SearchBar: React.FC<SearchBarProps> = ({ 
   onSearch, 
-  placeholder = "Search car registration..."
+  placeholder = "Search car registration...",
+  initialValue = ""
 }) => {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(initialValue);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSearch(searchQuery);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setSearchQuery(newValue);
+    onSearch(newValue); // Call onSearch on every change for immediate filtering
   };
   
   return (
@@ -26,7 +34,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
         type="text"
         placeholder={placeholder}
         value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
+        onChange={handleChange}
       />
       <Button type="submit" size="icon" variant="outline">
         <Search className="h-4 w-4" />
