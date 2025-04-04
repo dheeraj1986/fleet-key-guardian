@@ -2,13 +2,13 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
-import { Dashboard, Car, Key, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
+import { LayoutDashboard, Car, Key, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
 
   const menuItems = [
-    { name: "Dashboard", path: "/", icon: Dashboard },
+    { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
     { name: "Cars", path: "/cars", icon: Car },
     { name: "Missing Keys", path: "/missing-keys", icon: AlertTriangle },
     { name: "Issued Keys", path: "/issued-keys", icon: Key },
