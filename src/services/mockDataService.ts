@@ -83,7 +83,7 @@ function generateCarKey(carId: string, keyNumber: number): CarKey {
   
   // Determine random status with weighted probabilities
   const random = Math.random();
-  let status: "available" | "issued" | "missing" = "available";
+  let status: "available" | "issued" | "missing" | "recovered" = "available";
   let location: "inhouse" | "issued" = "inhouse";
   let issuedTo: string | undefined = undefined;
   let purpose: string | undefined = undefined;
@@ -91,17 +91,48 @@ function generateCarKey(carId: string, keyNumber: number): CarKey {
   if (random < 0.2) { // 20% chance to be missing
     status = "missing";
     location = "issued";
-  } else if (random < 0.5) { // 30% chance to be issued
+  } else if (random < 0.4) { // 20% chance to be issued
     status = "issued";
     location = "issued";
     issuedTo = staffMembers[Math.floor(Math.random() * staffMembers.length)];
     purpose = keyPurposes[Math.floor(Math.random() * keyPurposes.length)].name;
+  } else if (random < 0.5) { // 10% chance to be recovered
+    status = "recovered";
+    location = "inhouse";
   } else { // 50% chance to be available
     status = "available";
     location = "inhouse";
   }
 
   const transactions = generateTransactions(keyId, carId, Math.floor(Math.random() * 10) + 1);
+  
+  // For recovered keys, add appropriate transactions
+  if (status === 'recovered') {
+    // Add a missing transaction
+    transactions.push({
+      id: `t-${keyId}-missing`,
+      keyId,
+      carId,
+      type: "mark-missing",
+      timestamp: new Date(Date.now() - Math.random() * 500000000).toISOString(),
+      notes: "Key marked as missing"
+    });
+    
+    // Add a recovered transaction
+    const randomLocation = inhouseLocations[Math.floor(Math.random() * inhouseLocations.length)];
+    transactions.push({
+      id: `t-${keyId}-recovered`,
+      keyId,
+      carId,
+      type: "mark-recovered",
+      timestamp: new Date(Date.now() - Math.random() * 100000000).toISOString(),
+      location: randomLocation,
+      notes: "Key recovered and returned to inventory"
+    });
+    
+    // Sort transactions by date
+    transactions.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }
   
   return {
     id: keyId,
