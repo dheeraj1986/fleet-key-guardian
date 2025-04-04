@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState } from "react";
 import { Car, CarKey, KeyPurpose, KeyTransaction, DashboardStats } from "@/types";
 import { mockCars, mockDashboardStats, keyPurposes } from "@/services/mockDataService";
@@ -260,10 +259,10 @@ export const KeyManagementProvider: React.FC<{ children: React.ReactNode }> = ({
       notes: notes || "Key recovered"
     };
     
-    // Update key
+    // Update key - keep status as "recovered" instead of "available"
     const updatedKey: CarKey = {
       ...key,
-      status: 'available',
+      status: 'recovered',
       location: 'inhouse',
       issuedTo: undefined,
       purpose: undefined,

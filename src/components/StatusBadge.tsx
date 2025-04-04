@@ -27,7 +27,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
         };
       case "recovered":
         return {
-          color: "bg-green-700 text-white",
+          color: "bg-purple-600 text-white",
           label: "Recovered"
         };
       default:
