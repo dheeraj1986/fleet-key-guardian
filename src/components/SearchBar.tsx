@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, AlertCircle } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
-import * as apiService from "@/services/apiService";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface SearchBarProps {
@@ -21,7 +20,6 @@ const SearchBar: React.FC<SearchBarProps> = ({
   initialValue = ""
 }) => {
   const [searchQuery, setSearchQuery] = useState(initialValue);
-  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   
@@ -48,37 +46,44 @@ const SearchBar: React.FC<SearchBarProps> = ({
     try {
       console.log(`Starting search for ${searchType} with query: ${searchQuery}`);
       
-      // Use the appropriate search function based on searchType
+      const cityId = "6"; // Hardcoded city ID
+      
       if (searchType === "car") {
-        // Try the new car number search API first
-        try {
-          const result = await apiService.searchCarByNumber(searchQuery);
-          console.log("Car number search result:", result);
-          
-          // If no results, fall back to the original search
-          if (!result || !result.data || result.data.length === 0) {
-            console.log("No results from car number search, falling back to regular search");
-            
-            // Add a small delay before the fallback search to avoid potential rate limiting
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
-            const fallbackResult = await apiService.searchCars(searchQuery);
-            console.log("Fallback search result:", fallbackResult);
-          }
-        } catch (error) {
-          console.error("New API search failed, falling back to original search:", error);
-          const fallbackResult = await apiService.searchCars(searchQuery);
-          console.log("Fallback search result:", fallbackResult);
+        const apiUrl = `https://api-dev.everestfleet.com/jarvis_api/api/car/${cityId},${encodeURIComponent(searchQuery)}/`;
+        console.log(`Making API request to: ${apiUrl}`);
+        
+        const response = await fetch(apiUrl, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Token 7768c7f4c38e5cf8105bffd663cae9e29e510b1b`,
+          },
+          mode: 'cors',
+          credentials: 'include',
+        });
+        
+        console.log(`API response status: ${response.status}`);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`API error response: ${errorText}`);
+          throw new Error(`API error: ${response.status} ${response.statusText}`);
         }
+        
+        const data = await response.json();
+        console.log("API response data:", data);
       } else if (searchType === "driver") {
-        // Use driver search API
-        await apiService.searchDriverById(searchQuery);
+        // For now, we're focusing only on car search
+        console.log("Driver search not implemented yet");
       }
       
-      // Call the onSearch callback with the query regardless
-      // The parent component can decide how to handle the results
+      // Call the onSearch callback with the query
       onSearch(searchQuery);
       setSearchError(null);
+      
+      toast({
+        title: "Search Complete",
+        description: "Search completed successfully",
+      });
     } catch (error) {
       console.error("Search error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to perform search";
@@ -97,38 +102,6 @@ const SearchBar: React.FC<SearchBarProps> = ({
     const newValue = e.target.value;
     setSearchQuery(newValue);
     setSearchError(null);
-    
-    // Clear any existing timeout
-    if (typingTimeout) {
-      clearTimeout(typingTimeout);
-    }
-    
-    // Only trigger search if value is not empty and has at least 3 characters
-    if (newValue.trim().length >= 3) {
-      // Set a timeout to trigger search after user stops typing
-      const timeout = setTimeout(async () => {
-        setIsSearching(true);
-        try {
-          if (searchType === "car") {
-            // Try the new car number search API
-            await apiService.searchCarByNumber(newValue);
-          } else if (searchType === "driver") {
-            // Use driver search API
-            await apiService.searchDriverById(newValue);
-          }
-          onSearch(newValue);
-          setSearchError(null);
-        } catch (error) {
-          console.error("Auto-search error:", error);
-          const errorMessage = error instanceof Error ? error.message : "Failed to perform search";
-          setSearchError(errorMessage);
-        } finally {
-          setIsSearching(false);
-        }
-      }, 500); // 500ms debounce
-      
-      setTypingTimeout(timeout);
-    }
   };
   
   return (

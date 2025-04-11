@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useKeyManagement } from "@/contexts/KeyManagementContext";
 import CarCard from "@/components/CarCard";
@@ -11,13 +12,20 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
-import * as apiService from "@/services/apiService";
+
+// Define the Car interface to match what we'll get from the API
+interface Car {
+  id: string;
+  regNumber: string;
+  model: string;
+  keys: any[];
+}
 
 const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 'recovered-keys' }> = ({ filter = 'all' }) => {
   const { getFilteredCars, isLoading: isContextLoading, isError: isContextError } = useKeyManagement();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<string>("regNumber");
-  const [filteredCars, setFilteredCars] = useState<any[]>([]);
+  const [filteredCars, setFilteredCars] = useState<Car[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
   
@@ -32,62 +40,74 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
     }
   };
   
-  // Direct search function for specific car numbers
-  const performDirectSearch = async (query: string) => {
-    if (query.trim().length > 2) {
-      setIsSearching(true);
-      setSearchError(false);
-      
-      try {
-        console.log(`Searching for car: ${query}`);
-        
-        // First try the new car number search API
-        const carNumberResponse = await apiService.searchCarByNumber(query);
-        console.log("Car number search response:", carNumberResponse);
-        
-        let carsFound = [];
-        
-        // Check if we got results from the new API
-        if (carNumberResponse && carNumberResponse.data && carNumberResponse.data.length > 0) {
-          // Map the response to our car format if needed
-          carsFound = carNumberResponse.data.map((car: any) => ({
-            id: car.id?.toString() || "",
-            regNumber: car.reg_number || car.registration_number || "",
-            model: car.model || "",
-            keys: []  // Keys will be populated separately if needed
-          }));
-        } else {
-          // Fall back to the original search API
-          console.log("No results from car number search, falling back to regular search");
-          const response = await apiService.searchCars(query);
-          
-          if (response && response.data) {
-            carsFound = response.data.map(apiService.adaptCarFromApi);
-          }
-        }
-        
-        setFilteredCars(carsFound);
-        
-        // Show a toast notification with search results
-        toast({
-          title: "Search Results",
-          description: `Found ${carsFound.length} cars matching "${query}"`,
-        });
-      } catch (error) {
-        console.error("Error searching cars:", error);
-        setSearchError(true);
-        toast({
-          title: "Search Error",
-          description: "Failed to search for cars. Please try again.",
-          variant: "destructive",
-        });
-        setFilteredCars([]);
-      } finally {
-        setIsSearching(false);
-      }
-    } else if (query.trim() === "") {
+  // Function to directly search the API
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    
+    if (query.trim().length === 0) {
       // If search is cleared, revert to filtered cars from context
       updateFilteredCars(cars, "", sortBy);
+      return;
+    }
+    
+    setIsSearching(true);
+    setSearchError(false);
+    
+    try {
+      console.log(`Searching for car: ${query}`);
+      
+      const cityId = "6"; // Hardcoded city ID
+      const apiUrl = `https://api-dev.everestfleet.com/jarvis_api/api/car/${cityId},${encodeURIComponent(query)}/`;
+      
+      console.log(`Making API request to: ${apiUrl}`);
+      
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token 7768c7f4c38e5cf8105bffd663cae9e29e510b1b`,
+        },
+        mode: 'cors',
+        credentials: 'include',
+      });
+      
+      console.log(`API response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API error response: ${errorText}`);
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log("API response data:", data);
+      
+      // Map the API response to our car format
+      const carsFound = data && data.data ? data.data.map((car: any) => ({
+        id: car.id?.toString() || "",
+        regNumber: car.reg_number || car.registration_number || "",
+        model: car.model || "",
+        keys: []  // Keys will be empty initially
+      })) : [];
+      
+      setFilteredCars(carsFound);
+      
+      toast({
+        title: "Search Results",
+        description: `Found ${carsFound.length} cars matching "${query}"`,
+      });
+    } catch (error) {
+      console.error("Error searching cars:", error);
+      setSearchError(true);
+      toast({
+        title: "Search Error",
+        description: "Failed to search for cars. Please try again.",
+        variant: "destructive",
+      });
+      
+      // On error, show empty results
+      setFilteredCars([]);
+    } finally {
+      setIsSearching(false);
     }
   };
   
@@ -120,16 +140,10 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
     }
   }, [cars, sortBy]);
   
-  // Handler for search
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    performDirectSearch(query);
-  };
-  
   const isLoading = isContextLoading || isSearching;
   const isError = isContextError || searchError;
   
-  if (isLoading) {
+  if (isLoading && !searchQuery) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -151,7 +165,7 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
         <SearchBar 
           onSearch={handleSearch} 
           searchType="car"
-          placeholder="Search by registration or model..." 
+          placeholder="Search by registration number..." 
           initialValue={searchQuery}
         />
         
@@ -169,7 +183,14 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
         </div>
       </div>
       
-      {isError && (
+      {isSearching && (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+          <p>Searching...</p>
+        </div>
+      )}
+      
+      {isError && !isSearching && (
         <div className="text-center py-6 bg-red-50 rounded-lg">
           <p className="text-xl font-semibold text-destructive">Error loading cars</p>
           <p className="text-gray-500">Please try again later or check your connection</p>
