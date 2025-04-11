@@ -117,6 +117,12 @@ export const searchCars = async (query: string) => {
 // New function: Search car by number using the two-step process
 export const searchCarByNumber = async (carNumber: string) => {
   console.log(`Starting two-step search process for car number: ${carNumber}`);
+  
+  // Special test case for KA53AL9351
+  if (carNumber === "KA53AL9351") {
+    console.log("DETECTED TEST CASE: KA53AL9351 - Will log detailed API responses");
+  }
+  
   try {
     const trimmedQuery = carNumber.trim();
     if (trimmedQuery.length === 0) {
@@ -206,6 +212,12 @@ export const searchCarByNumber = async (carNumber: string) => {
       .flatMap(result => result?.data || []);
     
     console.log("Final combined search results:", validCarsData);
+    
+    // For test case - log the detailed structure of the result
+    if (carNumber === "KA53AL9351") {
+      console.log("TEST CASE RESULT STRUCTURE:", JSON.stringify(validCarsData, null, 2));
+    }
+    
     return { data: validCarsData };
     
   } catch (error) {

@@ -30,6 +30,7 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
   const [filteredCars, setFilteredCars] = useState<Car[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   
   const cars = getFilteredCars(filter);
   
@@ -49,6 +50,7 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
     if (query.trim().length === 0) {
       // If search is cleared, revert to filtered cars from context
       updateFilteredCars(cars, "", sortBy);
+      setSearchResults([]);
       return;
     }
     
@@ -58,9 +60,17 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
     try {
       console.log(`Starting two-step search for car with number: ${query}`);
       
+      // Special test case
+      if (query === "KA53AL9351") {
+        console.log("TEST CASE IN CARSLIST: KA53AL9351");
+      }
+      
       // Using the updated searchCarByNumber function from apiService that implements the two-step process
       const result = await searchCarByNumber(query);
       console.log("Two-step search complete. Results:", result);
+      
+      // Save the raw search results for inspection
+      setSearchResults(result.data || []);
       
       if (!result || !result.data || result.data.length === 0) {
         console.log("No cars found in search");
@@ -174,6 +184,17 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
         <div className="flex items-center justify-center py-4">
           <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
           <p>Searching cars...</p>
+        </div>
+      )}
+
+      {/* Debug section for the test case */}
+      {searchQuery === "KA53AL9351" && searchResults.length > 0 && (
+        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 mb-4">
+          <h3 className="font-semibold text-sm mb-2">Search Results Debug Info:</h3>
+          <p className="text-xs">Result count: {searchResults.length}</p>
+          <pre className="text-xs overflow-auto max-h-32 p-2 bg-gray-100 rounded mt-2">
+            {JSON.stringify(searchResults, null, 2)}
+          </pre>
         </div>
       )}
       

@@ -46,6 +46,11 @@ const SearchBar: React.FC<SearchBarProps> = ({
     try {
       console.log(`Starting ${searchType} search with query: ${searchQuery}`);
       
+      // Debug log for testing specific number
+      if (searchQuery === "KA53AL9351") {
+        console.log("TESTING SPECIAL CASE: KA53AL9351");
+      }
+      
       // Call the onSearch callback with the query
       onSearch(searchQuery);
       setSearchError(null);
