@@ -35,6 +35,66 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
   
   const cars = getFilteredCars(filter);
   
+  // Setup console log capture for debugging
+  useEffect(() => {
+    const captureConsoleLog = (event: any) => {
+      const logData = event.detail.log;
+      
+      try {
+        if (typeof logData === 'string') {
+          // Capture Step 1 results
+          if (logData.includes("Step 1 car search results:")) {
+            try {
+              const jsonStr = logData.substring(logData.indexOf('{'));
+              setApiStep1Response(JSON.parse(jsonStr));
+            } catch (e) {
+              console.error("Failed to parse Step 1 response", e);
+            }
+          }
+          
+          // Capture Step 2 results
+          if (logData.includes("Key details for car ID")) {
+            try {
+              const jsonStr = logData.substring(logData.indexOf('{'));
+              setApiStep2Response(JSON.parse(jsonStr));
+            } catch (e) {
+              console.error("Failed to parse Step 2 response", e);
+            }
+          }
+          
+          // Capture full response details
+          if (logData.includes("Response from")) {
+            const endpointType = logData.includes("key API") ? "Key API" : "Car API";
+            console.log(`Captured ${endpointType} response`);
+          }
+        }
+      } catch (error) {
+        console.error("Error processing console log:", error);
+      }
+    };
+
+    // Add event listener for custom console log events
+    window.addEventListener('consolelog', captureConsoleLog);
+    
+    // Original console.log capture
+    const originalConsoleLog = console.log;
+    console.log = function() {
+      originalConsoleLog.apply(console, arguments);
+      
+      // Create a custom event to pass the console log data
+      const event = new CustomEvent('consolelog', { 
+        detail: { log: arguments[0] } 
+      });
+      window.dispatchEvent(event);
+    };
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('consolelog', captureConsoleLog);
+      console.log = originalConsoleLog;
+    };
+  }, []);
+  
   const getFilterTitle = () => {
     switch (filter) {
       case 'missing-keys': return "Cars with Missing Keys";
@@ -65,41 +125,9 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
     try {
       console.log(`Starting two-step search for car with number: ${query}`);
       
-      // Special test case
-      if (query === "KA53AL9351") {
-        console.log("TEST CASE IN CARSLIST: KA53AL9351");
-      }
-      
       // Using the updated searchCarByNumber function from apiService that implements the two-step process
       const result = await searchCarByNumber(query);
-      console.log("Two-step search complete. Results:", result);
-      
-      // Parse and store API responses from console logs (hack for debugging)
-      if (query === "KA53AL9351") {
-        // This is a simple mechanism to extract API responses from console logs
-        // Not intended for production use, just for debugging this issue
-        window.addEventListener('consolelog', function(e: any) {
-          const log = e.detail.log;
-          if (typeof log === 'string') {
-            if (log.includes("Step 1 parsed JSON results:")) {
-              try {
-                const jsonStr = log.split("Step 1 parsed JSON results:")[1].trim();
-                setApiStep1Response(JSON.parse(jsonStr));
-              } catch (e) {
-                console.error("Failed to parse Step 1 response", e);
-              }
-            }
-            if (log.includes("Key details for car ID")) {
-              try {
-                const jsonStr = log.split("Key details for car ID")[1].split(":")[1].trim();
-                setApiStep2Response(JSON.parse(jsonStr));
-              } catch (e) {
-                console.error("Failed to parse Step 2 response", e);
-              }
-            }
-          }
-        });
-      }
+      console.log("Two-step search complete. Results:", JSON.stringify(result));
       
       // Save the raw search results for inspection
       setSearchResults(result.data || []);
@@ -117,7 +145,7 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
       // Map the API response to our car format
       const carsFound = result.data.map((car: any) => adaptCarFromApi(car));
       
-      console.log("Processed car results:", carsFound);
+      console.log("Processed car results:", JSON.stringify(carsFound));
       setFilteredCars(carsFound);
       
       toast({
@@ -219,8 +247,8 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
         </div>
       )}
 
-      {/* Debug section for the test case with enhanced API response display */}
-      {searchQuery === "KA53AL9351" && (
+      {/* Enhanced debug section that works for any search query */}
+      {searchQuery && (
         <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 mb-4">
           <h3 className="font-semibold text-sm mb-2">Search Results Debug Info:</h3>
           <div className="space-y-4">

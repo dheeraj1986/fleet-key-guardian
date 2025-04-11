@@ -1,4 +1,3 @@
-
 // Define constants for API calls
 const DEFAULT_CITY_ID = 2; // City ID 2 for all API calls
 const API_BASE_URL = "https://api-dev.everestfleet.com/jarvis_api/api";
@@ -19,10 +18,13 @@ const fetchNewApi = async (endpoint: string) => {
   });
   
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`API error: ${response.status} ${response.statusText}. Details: ${errorText}`);
     throw new Error(`API error: ${response.status} ${response.statusText}`);
   }
   
   const data = await response.json();
+  console.log(`Response from ${url}:`, JSON.stringify(data));
   return data;
 };
 
@@ -40,10 +42,13 @@ const fetchKeyApi = async (endpoint: string) => {
   });
   
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Key API error: ${response.status} ${response.statusText}. Details: ${errorText}`);
     throw new Error(`Key API error: ${response.status} ${response.statusText}`);
   }
   
   const data = await response.json();
+  console.log(`Response from key API ${url}:`, JSON.stringify(data));
   return data;
 };
 
@@ -77,8 +82,11 @@ export const searchCarByNumber = async (carNumber: string) => {
     
     // Step 1: Get car by registration number
     const endpoint = `car/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`;
+    console.log(`Step 1 API call to: ${API_BASE_URL}/${endpoint}`);
     const carResponse = await fetchNewApi(endpoint);
-    console.log(`Step 1 car search results:`, carResponse);
+    
+    // Explicitly log for debugging
+    console.log(`Step 1 car search results:`, JSON.stringify(carResponse));
     
     if (!carResponse || !carResponse.length) {
       console.log("No car found in Step 1");
@@ -94,8 +102,11 @@ export const searchCarByNumber = async (carNumber: string) => {
     
     console.log(`Found car ID: ${carId}, fetching key details`);
     const keyEndpoint = `car_key/key-details?car_id=${carId}`;
+    console.log(`Step 2 API call to: ${KEY_API_BASE_URL}/${keyEndpoint}`);
     const keyResponse = await fetchKeyApi(keyEndpoint);
-    console.log(`Key details for car ID ${carId}:`, keyResponse);
+    
+    // Explicitly log for debugging
+    console.log(`Key details for car ID ${carId}:`, JSON.stringify(keyResponse));
     
     // Combine car and key data
     const carWithKeys = {
