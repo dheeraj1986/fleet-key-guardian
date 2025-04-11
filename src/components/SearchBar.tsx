@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, AlertCircle } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import * as apiService from "@/services/apiService";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -22,6 +23,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
   const [searchQuery, setSearchQuery] = useState(initialValue);
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   
   useEffect(() => {
     // Set initial value when component mounts or initialValue changes
@@ -30,6 +32,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSearchError(null);
     
     if (searchQuery.trim().length === 0) {
       toast({
@@ -52,6 +55,12 @@ const SearchBar: React.FC<SearchBarProps> = ({
         // If no results or error, fall back to the original search
         if (!result || !result.data || result.data.length === 0) {
           console.log("No results from car number search, falling back to regular search");
+          
+          // Add a small delay before the fallback search to avoid potential rate limiting
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          const fallbackResult = await apiService.searchCars(searchQuery);
+          console.log("Fallback search result:", fallbackResult);
         }
       } else if (searchType === "driver") {
         // Use driver search API
@@ -61,11 +70,14 @@ const SearchBar: React.FC<SearchBarProps> = ({
       // Call the onSearch callback with the query regardless
       // The parent component can decide how to handle the results
       onSearch(searchQuery);
+      setSearchError(null);
     } catch (error) {
       console.error("Search error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to perform search";
+      setSearchError(errorMessage);
       toast({
         title: "Search Error",
-        description: "Failed to perform search. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -76,6 +88,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setSearchQuery(newValue);
+    setSearchError(null);
     
     // Clear any existing timeout
     if (typingTimeout) {
@@ -96,8 +109,11 @@ const SearchBar: React.FC<SearchBarProps> = ({
             await apiService.searchDriverById(newValue);
           }
           onSearch(newValue);
+          setSearchError(null);
         } catch (error) {
           console.error("Auto-search error:", error);
+          const errorMessage = error instanceof Error ? error.message : "Failed to perform search";
+          setSearchError(errorMessage);
         } finally {
           setIsSearching(false);
         }
@@ -108,18 +124,30 @@ const SearchBar: React.FC<SearchBarProps> = ({
   };
   
   return (
-    <form onSubmit={handleSubmit} className="flex w-full max-w-sm items-center space-x-2">
-      <Input
-        type="text"
-        placeholder={placeholder}
-        value={searchQuery}
-        onChange={handleChange}
-        disabled={isSearching}
-      />
-      <Button type="submit" size="icon" variant="outline" disabled={isSearching}>
-        <Search className="h-4 w-4" />
-      </Button>
-    </form>
+    <div className="space-y-2 w-full max-w-sm">
+      <form onSubmit={handleSubmit} className="flex w-full items-center space-x-2">
+        <Input
+          type="text"
+          placeholder={placeholder}
+          value={searchQuery}
+          onChange={handleChange}
+          disabled={isSearching}
+          className={searchError ? "border-red-500" : ""}
+        />
+        <Button type="submit" size="icon" variant="outline" disabled={isSearching}>
+          <Search className="h-4 w-4" />
+        </Button>
+      </form>
+      
+      {searchError && (
+        <Alert variant="destructive" className="py-2 px-3">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-xs">
+            {searchError}
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
   );
 };
 

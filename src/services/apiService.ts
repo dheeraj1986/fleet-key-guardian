@@ -16,6 +16,8 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
     },
     // Add mode: 'cors' to handle CORS
     mode: 'cors',
+    // Add credentials setting to include cookies if needed
+    credentials: 'include',
   };
 
   console.log(`Making API request to: ${BASE_URL}/${endpoint}`);
@@ -77,6 +79,7 @@ export const searchCarByNumber = async (carNumber: string) => {
       return { data: [] };
     }
     
+    // Improved fetch with error handling and CORS support
     const response = await fetch(
       `${API_DEV_URL}/jarvis_api/api/car/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`, 
       {
@@ -85,6 +88,7 @@ export const searchCarByNumber = async (carNumber: string) => {
           'Authorization': `Token ${API_TOKEN}`,
         },
         mode: 'cors',
+        credentials: 'include',
       }
     );
     
@@ -116,6 +120,7 @@ export const searchDriverById = async (driverId: string) => {
       return { data: [] };
     }
     
+    // Improved fetch with error handling and CORS support
     const response = await fetch(
       `${API_DEV_URL}/jarvis_api/api/driver/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`, 
       {
@@ -124,6 +129,7 @@ export const searchDriverById = async (driverId: string) => {
           'Authorization': `Token ${API_TOKEN}`,
         },
         mode: 'cors',
+        credentials: 'include',
       }
     );
     
