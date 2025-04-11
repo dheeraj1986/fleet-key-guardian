@@ -1,346 +1,242 @@
-import React, { createContext, useContext, useState } from "react";
+
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { Car, CarKey, KeyPurpose, KeyTransaction, DashboardStats } from "@/types";
-import { mockCars, mockDashboardStats, keyPurposes } from "@/services/mockDataService";
+import { keyPurposes } from "@/services/mockDataService";
 import { toast } from "@/components/ui/use-toast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import * as apiService from "@/services/apiService";
 
 interface KeyManagementContextType {
   cars: Car[];
   purposes: KeyPurpose[];
   stats: DashboardStats;
-  issueKey: (carId: string, keyId: string, issuedTo: string, purposeId: string, notes?: string) => void;
-  returnKey: (carId: string, keyId: string, location: string, notes?: string) => void;
-  markKeyMissing: (carId: string, keyId: string, notes?: string) => void;
-  markKeyRecovered: (carId: string, keyId: string, location: string, notes?: string) => void;
-  addNewKey: (carId: string, keyNumber: number) => void;
+  issueKey: (carId: string, keyId: string, issuedTo: string, purposeId: string, notes?: string) => Promise<void>;
+  returnKey: (carId: string, keyId: string, location: string, notes?: string) => Promise<void>;
+  markKeyMissing: (carId: string, keyId: string, notes?: string) => Promise<void>;
+  markKeyRecovered: (carId: string, keyId: string, location: string, notes?: string) => Promise<void>;
+  addNewKey: (carId: string, keyNumber: number) => Promise<void>;
   getCar: (carId: string) => Car | undefined;
   getKey: (keyId: string) => CarKey | undefined;
   getFilteredCars: (filter: 'all' | 'missing-keys' | 'issued-keys' | 'recovered-keys') => Car[];
+  isLoading: boolean;
+  isError: boolean;
 }
 
 const KeyManagementContext = createContext<KeyManagementContextType | undefined>(undefined);
 
 export const KeyManagementProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [cars, setCars] = useState<Car[]>(mockCars);
-  const [stats, setStats] = useState<DashboardStats>(mockDashboardStats);
   const [purposes] = useState<KeyPurpose[]>(keyPurposes);
-
-  // Helper function to recalculate stats
-  const recalculateStats = (updatedCars: Car[]) => {
-    let totalKeys = 0;
-    let availableKeys = 0;
-    let issuedKeys = 0;
-    let missingKeys = 0;
-    let recoveredKeys = 0;
-    
-    updatedCars.forEach(car => {
-      car.keys.forEach(key => {
-        totalKeys++;
-        if (key.status === 'available') availableKeys++;
-        if (key.status === 'issued') issuedKeys++;
-        if (key.status === 'missing') missingKeys++;
-        if (key.status === 'recovered') recoveredKeys++;
+  const queryClient = useQueryClient();
+  
+  // Fetch all cars
+  const { 
+    data: cars = [], 
+    isLoading: isLoadingCars,
+    isError: isErrorCars
+  } = useQuery({
+    queryKey: ['cars'],
+    queryFn: async () => {
+      try {
+        const response = await apiService.searchCars("");
+        return response.data?.map(apiService.adaptCarFromApi) || [];
+      } catch (error) {
+        console.error("Error fetching cars:", error);
+        return [];
+      }
+    }
+  });
+  
+  // Fetch stats
+  const { 
+    data: stats = {
+      totalCars: 0,
+      totalKeys: 0,
+      availableKeys: 0,
+      issuedKeys: 0,
+      missingKeys: 0,
+      recoveredKeys: 0
+    },
+    isLoading: isLoadingStats,
+    isError: isErrorStats
+  } = useQuery({
+    queryKey: ['stats'],
+    queryFn: async () => {
+      try {
+        // Using the first location for now - in a real app, you might need to select
+        // a location from a dropdown or get the user's current location
+        const response = await apiService.getKeyStatistics("1"); 
+        return apiService.adaptStatsFromApi(response.data);
+      } catch (error) {
+        console.error("Error fetching stats:", error);
+        return {
+          totalCars: 0,
+          totalKeys: 0,
+          availableKeys: 0,
+          issuedKeys: 0,
+          missingKeys: 0,
+          recoveredKeys: 0
+        };
+      }
+    }
+  });
+  
+  // Issue key mutation
+  const issueMutation = useMutation({
+    mutationFn: async ({ 
+      keyId, 
+      driverId, 
+      purpose, 
+      remarks 
+    }: { 
+      keyId: string; 
+      driverId: string; 
+      purpose: string; 
+      remarks?: string 
+    }) => {
+      return apiService.issueKey(keyId, driverId, purpose, remarks);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cars'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      toast({ title: "Success", description: "Key issued successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to issue key", 
+        variant: "destructive" 
       });
-    });
-    
-    setStats({
-      totalCars: updatedCars.length,
-      totalKeys,
-      availableKeys,
-      issuedKeys,
-      missingKeys,
-      recoveredKeys
-    });
-  };
-
-  // Helper function to find car and key
-  const findCarAndKey = (carId: string, keyId: string): { car: Car; carIndex: number; key: CarKey; keyIndex: number } | undefined => {
-    const carIndex = cars.findIndex(c => c.id === carId);
-    if (carIndex === -1) return undefined;
-    
-    const car = cars[carIndex];
-    const keyIndex = car.keys.findIndex(k => k.id === keyId);
-    if (keyIndex === -1) return undefined;
-    
-    return { car, carIndex, key: car.keys[keyIndex], keyIndex };
-  };
+    }
+  });
+  
+  // Return key mutation (mark as available)
+  const returnMutation = useMutation({
+    mutationFn: async ({ 
+      keyId, 
+      keyPlace, 
+      remarks 
+    }: { 
+      keyId: string; 
+      keyPlace: string; 
+      remarks?: string 
+    }) => {
+      return apiService.markKeyAvailable(keyId, keyPlace, remarks);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cars'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      toast({ title: "Success", description: "Key returned successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to return key", 
+        variant: "destructive" 
+      });
+    }
+  });
+  
+  // Mark key missing mutation
+  const missingMutation = useMutation({
+    mutationFn: async ({ 
+      keyId, 
+      remarks 
+    }: { 
+      keyId: string; 
+      remarks?: string 
+    }) => {
+      return apiService.markKeyMissing(keyId, remarks);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cars'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      toast({ title: "Alert", description: "Key marked as missing", variant: "destructive" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to mark key as missing", 
+        variant: "destructive" 
+      });
+    }
+  });
+  
+  // Add new key mutation
+  const addKeyMutation = useMutation({
+    mutationFn: async ({ 
+      carId, 
+      keyNumber, 
+      keyPlace,
+      remarks 
+    }: { 
+      carId: string; 
+      keyNumber: string; 
+      keyPlace: string;
+      remarks?: string 
+    }) => {
+      return apiService.addNewKey(carId, keyNumber, keyPlace, remarks);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cars'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      toast({ title: "Success", description: "Key added successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to add new key", 
+        variant: "destructive" 
+      });
+    }
+  });
 
   // Issue a key
-  const issueKey = (carId: string, keyId: string, issuedTo: string, purposeId: string, notes?: string) => {
-    const found = findCarAndKey(carId, keyId);
-    if (!found) return;
-    
-    const { car, carIndex, key, keyIndex } = found;
+  const issueKey = async (carId: string, keyId: string, issuedTo: string, purposeId: string, notes?: string) => {
     const purpose = purposes.find(p => p.id === purposeId)?.name || '';
     
-    if (key.status === 'issued') {
-      toast({ title: "Error", description: "This key is already issued", variant: "destructive" });
-      return;
-    }
-    
-    if (key.status === 'missing') {
-      toast({ title: "Error", description: "Cannot issue a missing key", variant: "destructive" });
-      return;
-    }
-    
-    // Create transaction
-    const transaction: KeyTransaction = {
-      id: `t-${keyId}-${Date.now()}`,
-      keyId,
-      carId,
-      type: 'issue',
-      timestamp: new Date().toISOString(),
-      issuedTo,
-      purpose,
-      notes: notes || "Key issued"
-    };
-    
-    // Update key
-    const updatedKey: CarKey = {
-      ...key,
-      status: 'issued',
-      location: 'issued',
-      issuedTo,
-      purpose,
-      transactions: [...key.transactions, transaction]
-    };
-    
-    // Update car
-    const updatedCar: Car = {
-      ...car,
-      keys: [
-        ...car.keys.slice(0, keyIndex),
-        updatedKey,
-        ...car.keys.slice(keyIndex + 1)
-      ]
-    };
-    
-    // Update state
-    const updatedCars = [
-      ...cars.slice(0, carIndex),
-      updatedCar,
-      ...cars.slice(carIndex + 1)
-    ];
-    
-    setCars(updatedCars);
-    recalculateStats(updatedCars);
-    
-    toast({ title: "Success", description: "Key issued successfully" });
+    await issueMutation.mutateAsync({ 
+      keyId, 
+      driverId: issuedTo, 
+      purpose, 
+      remarks: notes 
+    });
   };
 
   // Return a key
-  const returnKey = (carId: string, keyId: string, location: string, notes?: string) => {
-    const found = findCarAndKey(carId, keyId);
-    if (!found) return;
-    
-    const { car, carIndex, key, keyIndex } = found;
-    
-    if (key.status !== 'issued') {
-      toast({ title: "Error", description: "This key is not issued", variant: "destructive" });
-      return;
-    }
-    
-    // Create transaction
-    const transaction: KeyTransaction = {
-      id: `t-${keyId}-${Date.now()}`,
-      keyId,
-      carId,
-      type: 'return',
-      timestamp: new Date().toISOString(),
-      location,
-      notes: notes || "Key returned"
-    };
-    
-    // Update key
-    const updatedKey: CarKey = {
-      ...key,
-      status: 'available',
-      location: 'inhouse',
-      issuedTo: undefined,
-      purpose: undefined,
-      transactions: [...key.transactions, transaction]
-    };
-    
-    // Update car
-    const updatedCar: Car = {
-      ...car,
-      keys: [
-        ...car.keys.slice(0, keyIndex),
-        updatedKey,
-        ...car.keys.slice(keyIndex + 1)
-      ]
-    };
-    
-    // Update state
-    const updatedCars = [
-      ...cars.slice(0, carIndex),
-      updatedCar,
-      ...cars.slice(carIndex + 1)
-    ];
-    
-    setCars(updatedCars);
-    recalculateStats(updatedCars);
-    
-    toast({ title: "Success", description: "Key returned successfully" });
+  const returnKey = async (carId: string, keyId: string, location: string, notes?: string) => {
+    await returnMutation.mutateAsync({ 
+      keyId, 
+      keyPlace: location, 
+      remarks: notes 
+    });
   };
 
   // Mark a key as missing
-  const markKeyMissing = (carId: string, keyId: string, notes?: string) => {
-    const found = findCarAndKey(carId, keyId);
-    if (!found) return;
-    
-    const { car, carIndex, key, keyIndex } = found;
-    
-    if (key.status === 'missing') {
-      toast({ title: "Error", description: "This key is already marked as missing", variant: "destructive" });
-      return;
-    }
-    
-    // Create transaction
-    const transaction: KeyTransaction = {
-      id: `t-${keyId}-${Date.now()}`,
-      keyId,
-      carId,
-      type: 'mark-missing',
-      timestamp: new Date().toISOString(),
-      notes: notes || "Key marked as missing"
-    };
-    
-    // Update key
-    const updatedKey: CarKey = {
-      ...key,
-      status: 'missing',
-      location: 'issued',
-      transactions: [...key.transactions, transaction]
-    };
-    
-    // Update car
-    const updatedCar: Car = {
-      ...car,
-      keys: [
-        ...car.keys.slice(0, keyIndex),
-        updatedKey,
-        ...car.keys.slice(keyIndex + 1)
-      ]
-    };
-    
-    // Update state
-    const updatedCars = [
-      ...cars.slice(0, carIndex),
-      updatedCar,
-      ...cars.slice(carIndex + 1)
-    ];
-    
-    setCars(updatedCars);
-    recalculateStats(updatedCars);
-    
-    toast({ title: "Alert", description: "Key marked as missing", variant: "destructive" });
+  const markKeyMissing = async (carId: string, keyId: string, notes?: string) => {
+    await missingMutation.mutateAsync({ 
+      keyId, 
+      remarks: notes 
+    });
   };
 
-  // Mark a key as recovered
-  const markKeyRecovered = (carId: string, keyId: string, location: string, notes?: string) => {
-    const found = findCarAndKey(carId, keyId);
-    if (!found) return;
-    
-    const { car, carIndex, key, keyIndex } = found;
-    
-    if (key.status !== 'missing') {
-      toast({ title: "Error", description: "Only missing keys can be marked as recovered", variant: "destructive" });
-      return;
-    }
-    
-    // Create transaction
-    const transaction: KeyTransaction = {
-      id: `t-${keyId}-${Date.now()}`,
-      keyId,
-      carId,
-      type: 'mark-recovered',
-      timestamp: new Date().toISOString(),
-      location,
-      notes: notes || "Key recovered"
-    };
-    
-    // Update key - keep status as "recovered" instead of "available"
-    const updatedKey: CarKey = {
-      ...key,
-      status: 'recovered',
-      location: 'inhouse',
-      issuedTo: undefined,
-      purpose: undefined,
-      transactions: [...key.transactions, transaction]
-    };
-    
-    // Update car
-    const updatedCar: Car = {
-      ...car,
-      keys: [
-        ...car.keys.slice(0, keyIndex),
-        updatedKey,
-        ...car.keys.slice(keyIndex + 1)
-      ]
-    };
-    
-    // Update state
-    const updatedCars = [
-      ...cars.slice(0, carIndex),
-      updatedCar,
-      ...cars.slice(carIndex + 1)
-    ];
-    
-    setCars(updatedCars);
-    recalculateStats(updatedCars);
-    
-    toast({ title: "Success", description: "Key marked as recovered" });
+  // Mark a key as recovered (same as marking it available with special note)
+  const markKeyRecovered = async (carId: string, keyId: string, location: string, notes?: string) => {
+    const combinedNotes = `Key recovered. ${notes || ''}`;
+    await returnMutation.mutateAsync({ 
+      keyId, 
+      keyPlace: location, 
+      remarks: combinedNotes 
+    });
   };
 
   // Add a new key
-  const addNewKey = (carId: string, keyNumber: number) => {
-    const carIndex = cars.findIndex(c => c.id === carId);
-    if (carIndex === -1) return;
-    
-    const car = cars[carIndex];
-    
-    // Check if key number already exists
-    if (car.keys.some(k => k.keyNumber === keyNumber)) {
-      toast({ title: "Error", description: `Key #${keyNumber} already exists for this car`, variant: "destructive" });
-      return;
-    }
-    
-    const keyId = `key-${carId}-${keyNumber}`;
-    
-    // Create new key
-    const newKey: CarKey = {
-      id: keyId,
-      carId,
-      keyNumber,
-      status: 'available',
-      location: 'inhouse',
-      transactions: [{
-        id: `t-${keyId}-0`,
-        keyId,
-        carId,
-        type: 'add-new',
-        timestamp: new Date().toISOString(),
-        notes: "New key added"
-      }]
-    };
-    
-    // Update car
-    const updatedCar: Car = {
-      ...car,
-      keys: [...car.keys, newKey]
-    };
-    
-    // Update state
-    const updatedCars = [
-      ...cars.slice(0, carIndex),
-      updatedCar,
-      ...cars.slice(carIndex + 1)
-    ];
-    
-    setCars(updatedCars);
-    recalculateStats(updatedCars);
-    
-    toast({ title: "Success", description: `Key #${keyNumber} added successfully` });
+  const addNewKey = async (carId: string, keyNumber: number) => {
+    await addKeyMutation.mutateAsync({ 
+      carId, 
+      keyNumber: keyNumber.toString(), 
+      keyPlace: "inhouse",
+      remarks: "New key added" 
+    });
   };
 
   // Get a car by ID
@@ -371,6 +267,9 @@ export const KeyManagementProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const isLoading = isLoadingCars || isLoadingStats;
+  const isError = isErrorCars || isErrorStats;
+
   const value = {
     cars,
     purposes,
@@ -382,7 +281,9 @@ export const KeyManagementProvider: React.FC<{ children: React.ReactNode }> = ({
     addNewKey,
     getCar,
     getKey,
-    getFilteredCars
+    getFilteredCars,
+    isLoading,
+    isError
   };
 
   return (

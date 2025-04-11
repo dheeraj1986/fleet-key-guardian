@@ -10,9 +10,10 @@ import {
   SelectTrigger,
   SelectValue, 
 } from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
 
 const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 'recovered-keys' }> = ({ filter = 'all' }) => {
-  const { getFilteredCars } = useKeyManagement();
+  const { getFilteredCars, isLoading, isError } = useKeyManagement();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<string>("regNumber");
   const [filteredCars, setFilteredCars] = useState<any[]>([]);
@@ -54,6 +55,24 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Loading cars...</p>
+      </div>
+    );
+  }
+  
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-xl font-semibold text-destructive">Error loading cars</p>
+        <p className="text-gray-500">Please try again later</p>
+      </div>
+    );
+  }
   
   return (
     <div className="space-y-6">

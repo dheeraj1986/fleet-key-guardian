@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useKeyManagement } from "@/contexts/KeyManagementContext";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import {
   TabsList, 
   TabsTrigger 
 } from "@/components/ui/tabs";
-import { Car as CarIcon, ArrowLeft, Plus } from "lucide-react";
+import { Car as CarIcon, ArrowLeft, Plus, Loader2 } from "lucide-react";
 import KeyStatusCard from "@/components/KeyStatusCard";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -25,18 +25,27 @@ import { Input } from "@/components/ui/input";
 
 const CarDetails: React.FC = () => {
   const { carId } = useParams<{ carId: string }>();
-  const { getCar, addNewKey } = useKeyManagement();
+  const { getCar, addNewKey, isLoading, isError } = useKeyManagement();
   const { toast } = useToast();
-  const [newKeyNumber, setNewKeyNumber] = React.useState<number>(0);
-  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [newKeyNumber, setNewKeyNumber] = useState<number>(0);
+  const [dialogOpen, setDialogOpen] = useState(false);
   
   const car = getCar(carId ?? "");
   
-  if (!car) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Loading car details...</p>
+      </div>
+    );
+  }
+  
+  if (isError || !car) {
     return (
       <div className="text-center py-10">
         <h2 className="text-2xl font-bold mb-2">Car not found</h2>
-        <p className="mb-4">The car you are looking for does not exist.</p>
+        <p className="mb-4">The car you are looking for does not exist or could not be loaded.</p>
         <Button asChild>
           <Link to="/cars">Back to Cars</Link>
         </Button>
@@ -136,6 +145,12 @@ const CarDetails: React.FC = () => {
                   />
                 ))}
               </div>
+              
+              {car.keys.length === 0 && (
+                <div className="text-center py-10">
+                  <p className="text-gray-500">No keys found for this car</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
