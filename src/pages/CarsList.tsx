@@ -11,12 +11,16 @@ import {
   SelectValue, 
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
+import * as apiService from "@/services/apiService";
 
 const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 'recovered-keys' }> = ({ filter = 'all' }) => {
-  const { getFilteredCars, isLoading, isError } = useKeyManagement();
+  const { getFilteredCars, isLoading: isContextLoading, isError: isContextError } = useKeyManagement();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<string>("regNumber");
   const [filteredCars, setFilteredCars] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   
   const cars = getFilteredCars(filter);
   
@@ -29,32 +33,83 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
     }
   };
   
+  // Direct search function for specific car numbers
+  const performDirectSearch = async (query: string) => {
+    if (query.trim().length > 3) {
+      setIsSearching(true);
+      setSearchError(false);
+      
+      try {
+        console.log(`Searching for car: ${query}`);
+        const response = await apiService.searchCars(query);
+        console.log("Search response:", response);
+        
+        if (response && response.data) {
+          const adaptedCars = response.data.map(apiService.adaptCarFromApi);
+          setFilteredCars(adaptedCars);
+          
+          // Show a toast notification with search results
+          toast({
+            title: "Search Results",
+            description: `Found ${adaptedCars.length} cars matching "${query}"`,
+          });
+        } else {
+          setFilteredCars([]);
+        }
+      } catch (error) {
+        console.error("Error searching cars:", error);
+        setSearchError(true);
+        toast({
+          title: "Search Error",
+          description: "Failed to search for cars. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsSearching(false);
+      }
+    } else if (query.trim() === "") {
+      // If search is cleared, revert to filtered cars from context
+      updateFilteredCars(cars, "", sortBy);
+    }
+  };
+  
   // Update filtered cars when search query, cars, or sorting changes
-  useEffect(() => {
+  const updateFilteredCars = (carsList: any[], query: string, sort: string) => {
     // Filter cars based on search query
-    const filtered = cars.filter(car => 
-      car.regNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      car.model.toLowerCase().includes(searchQuery.toLowerCase())
+    const filtered = carsList.filter(car => 
+      car.regNumber.toLowerCase().includes(query.toLowerCase()) ||
+      car.model.toLowerCase().includes(query.toLowerCase())
     );
     
     // Sort filtered cars
     const sorted = [...filtered].sort((a, b) => {
-      if (sortBy === "regNumber") {
+      if (sort === "regNumber") {
         return a.regNumber.localeCompare(b.regNumber);
       }
-      if (sortBy === "model") {
+      if (sort === "model") {
         return a.model.localeCompare(b.model);
       }
       return 0;
     });
     
     setFilteredCars(sorted);
-  }, [searchQuery, cars, sortBy]);
+  };
+  
+  // Run on initial load and when cars/sortBy changes
+  useEffect(() => {
+    if (!isSearching && searchQuery.trim() === "") {
+      updateFilteredCars(cars, searchQuery, sortBy);
+    }
+  }, [cars, sortBy]);
   
   // Handler for search
   const handleSearch = (query: string) => {
     setSearchQuery(query);
+    performDirectSearch(query);
   };
+  
+  const isLoading = isContextLoading || isSearching;
+  const isError = isContextError || searchError;
   
   if (isLoading) {
     return (

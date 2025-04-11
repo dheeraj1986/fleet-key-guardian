@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
@@ -16,6 +16,12 @@ const SearchBar: React.FC<SearchBarProps> = ({
   initialValue = ""
 }) => {
   const [searchQuery, setSearchQuery] = useState(initialValue);
+  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
+  
+  useEffect(() => {
+    // Set initial value when component mounts or initialValue changes
+    setSearchQuery(initialValue);
+  }, [initialValue]);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +31,18 @@ const SearchBar: React.FC<SearchBarProps> = ({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setSearchQuery(newValue);
-    onSearch(newValue); // Call onSearch on every change for immediate filtering
+    
+    // Clear any existing timeout
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+    }
+    
+    // Set a timeout to trigger search after user stops typing
+    const timeout = setTimeout(() => {
+      onSearch(newValue);
+    }, 500); // 500ms debounce
+    
+    setTypingTimeout(timeout);
   };
   
   return (

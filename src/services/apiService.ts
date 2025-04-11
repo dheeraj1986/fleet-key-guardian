@@ -14,16 +14,22 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
     },
   };
 
+  console.log(`Making API request to: ${BASE_URL}/${endpoint}`);
+  
   const response = await fetch(`${BASE_URL}/${endpoint}`, {
     ...defaultOptions,
     ...options,
   });
 
+  console.log(`API response status: ${response.status}`);
+
   if (!response.ok) {
     throw new Error(`API error: ${response.status} ${response.statusText}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  console.log("API response data:", data);
+  return data;
 };
 
 // Search cars by registration or model
@@ -112,8 +118,9 @@ export const getKeyStatistics = async (locationId: string) => {
 
 // Adapter functions to convert API response to our app types
 export const adaptCarFromApi = (apiCar: any): Car => {
+  console.log("Adapting car from API:", apiCar);
   return {
-    id: apiCar.car_id?.toString() || apiCar.id?.toString(),
+    id: apiCar.car_id?.toString() || apiCar.id?.toString() || "",
     regNumber: apiCar.registration_number || apiCar.reg_number || "",
     model: apiCar.model || "",
     keys: Array.isArray(apiCar.keys) 
