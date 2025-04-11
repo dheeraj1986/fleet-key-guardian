@@ -31,25 +31,22 @@ const SearchBar: React.FC<SearchBarProps> = ({
   // For advanced console capturing (used for debugging the test case)
   useEffect(() => {
     // Only setup for test cases to capture console logs
-    if (searchQuery === "KA53AL9351") {
-      // Create a special event to pass console logs to components
-      const originalConsoleLog = console.log;
-      console.log = function() {
-        originalConsoleLog.apply(console, arguments);
-        
-        // Create a custom event to pass the console log data
-        const event = new CustomEvent('consolelog', { 
-          detail: { log: arguments[0] } 
-        });
-        window.dispatchEvent(event);
-      };
+    const originalConsoleLog = console.log;
+    console.log = function() {
+      originalConsoleLog.apply(console, arguments);
       
-      // Restore on cleanup
-      return () => {
-        console.log = originalConsoleLog;
-      };
-    }
-  }, [searchQuery]);
+      // Create a custom event to pass the console log data
+      const event = new CustomEvent('consolelog', { 
+        detail: { log: arguments[0] } 
+      });
+      window.dispatchEvent(event);
+    };
+    
+    // Restore on cleanup
+    return () => {
+      console.log = originalConsoleLog;
+    };
+  }, []);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,12 +64,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
     setIsSearching(true);
     
     try {
-      console.log(`Starting ${searchType} search with query: ${searchQuery}`);
-      
-      // Debug log for testing specific number
-      if (searchQuery === "KA53AL9351") {
-        console.log("TESTING SPECIAL CASE: KA53AL9351");
-      }
+      console.log(`Starting ${searchType} search with query: "${searchQuery}"`);
       
       // Call the onSearch callback with the query
       onSearch(searchQuery);

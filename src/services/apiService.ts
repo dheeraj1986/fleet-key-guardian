@@ -1,3 +1,4 @@
+
 // Define constants for API calls
 const DEFAULT_CITY_ID = 2; // City ID 2 for all API calls
 const API_BASE_URL = "https://api-dev.everestfleet.com/jarvis_api/api";
@@ -9,23 +10,30 @@ const fetchNewApi = async (endpoint: string) => {
   const url = `${API_BASE_URL}/${endpoint}`;
   console.log(`Fetching: ${url}`);
   
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Token ${AUTH_TOKEN}`
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token ${AUTH_TOKEN}`
+      }
+    });
+    
+    console.log(`Response status: ${response.status} ${response.statusText}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`API error: ${response.status} ${response.statusText}. Details: ${errorText}`);
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`API error: ${response.status} ${response.statusText}. Details: ${errorText}`);
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
+    
+    const data = await response.json();
+    console.log(`Response from ${url}:`, data);
+    return data;
+  } catch (error) {
+    console.error(`Error fetching from ${url}:`, error);
+    throw error;
   }
-  
-  const data = await response.json();
-  console.log(`Response from ${url}:`, JSON.stringify(data));
-  return data;
 };
 
 // Helper function to make key API calls (different base URL)
@@ -33,23 +41,30 @@ const fetchKeyApi = async (endpoint: string) => {
   const url = `${KEY_API_BASE_URL}/${endpoint}`;
   console.log(`Fetching key API: ${url}`);
   
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Token ${AUTH_TOKEN}`
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token ${AUTH_TOKEN}`
+      }
+    });
+    
+    console.log(`Key API response status: ${response.status} ${response.statusText}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Key API error: ${response.status} ${response.statusText}. Details: ${errorText}`);
+      throw new Error(`Key API error: ${response.status} ${response.statusText}`);
     }
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`Key API error: ${response.status} ${response.statusText}. Details: ${errorText}`);
-    throw new Error(`Key API error: ${response.status} ${response.statusText}`);
+    
+    const data = await response.json();
+    console.log(`Response from key API ${url}:`, data);
+    return data;
+  } catch (error) {
+    console.error(`Error fetching from key API ${url}:`, error);
+    throw error;
   }
-  
-  const data = await response.json();
-  console.log(`Response from key API ${url}:`, JSON.stringify(data));
-  return data;
 };
 
 // Adapters for API responses
@@ -73,57 +88,76 @@ export const adaptStatsFromApi = (stats: any) => {
 
 // Function to search for cars by registration number
 export const searchCarByNumber = async (carNumber: string) => {
-  console.log(`Searching for car with registration number: ${carNumber} in city ID: ${DEFAULT_CITY_ID}`);
+  console.log(`DEBUG: searchCarByNumber called with carNumber: ${carNumber}`);
   try {
     const trimmedQuery = carNumber.trim();
     if (trimmedQuery.length === 0) {
+      console.log("DEBUG: Empty query, returning empty results");
       return { data: [] };
     }
     
     // Step 1: Get car by registration number
+    // Format: car/2,KA01XX0000/
     const endpoint = `car/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`;
-    console.log(`Step 1 API call to: ${API_BASE_URL}/${endpoint}`);
-    const carResponse = await fetchNewApi(endpoint);
+    console.log(`DEBUG Step 1: Making API call to: ${API_BASE_URL}/${endpoint}`);
     
-    // Explicitly log for debugging
-    console.log(`Step 1 car search results:`, JSON.stringify(carResponse));
-    
-    if (!carResponse || !carResponse.length) {
-      console.log("No car found in Step 1");
+    try {
+      const carResponse = await fetchNewApi(endpoint);
+      console.log(`DEBUG Step 1 Response:`, carResponse);
+      
+      if (!carResponse || !Array.isArray(carResponse) || carResponse.length === 0) {
+        console.log("DEBUG Step 1: No cars found or invalid response format");
+        return { data: [] };
+      }
+      
+      // Step 2: Get key details for the car
+      const carId = carResponse[0]?.id;
+      if (!carId) {
+        console.log("DEBUG Step 1.5: Car found but no car ID in response");
+        return { data: [{
+          ...carResponse[0],
+          keys: []
+        }] };
+      }
+      
+      console.log(`DEBUG Step 2: Found car ID: ${carId}, fetching key details`);
+      const keyEndpoint = `car_key/key-details?car_id=${carId}`;
+      
+      try {
+        const keyResponse = await fetchKeyApi(keyEndpoint);
+        console.log(`DEBUG Step 2 Response:`, keyResponse);
+        
+        // Combine car and key data
+        const carWithKeys = {
+          ...carResponse[0],
+          keys: keyResponse?.data || []
+        };
+        
+        console.log(`DEBUG Final: Combined car with keys:`, carWithKeys);
+        return { data: [carWithKeys] };
+      } catch (keyError) {
+        console.error("DEBUG Step 2 Error: Failed to fetch key details:", keyError);
+        // Return car without keys if key fetch fails
+        return { 
+          data: [{ 
+            ...carResponse[0], 
+            keys: [] 
+          }] 
+        };
+      }
+    } catch (carError) {
+      console.error("DEBUG Step 1 Error: Failed to fetch car:", carError);
       return { data: [] };
     }
-    
-    // Step 2: Get key details for the car
-    const carId = carResponse[0]?.id;
-    if (!carId) {
-      console.log("No car ID found in response");
-      return { data: [] };
-    }
-    
-    console.log(`Found car ID: ${carId}, fetching key details`);
-    const keyEndpoint = `car_key/key-details?car_id=${carId}`;
-    console.log(`Step 2 API call to: ${KEY_API_BASE_URL}/${keyEndpoint}`);
-    const keyResponse = await fetchKeyApi(keyEndpoint);
-    
-    // Explicitly log for debugging
-    console.log(`Key details for car ID ${carId}:`, JSON.stringify(keyResponse));
-    
-    // Combine car and key data
-    const carWithKeys = {
-      ...carResponse[0],
-      keys: keyResponse?.data || []
-    };
-    
-    return { data: [carWithKeys] };
   } catch (error) {
-    console.error("Car search error:", error);
+    console.error("DEBUG: Main searchCarByNumber error:", error);
     throw error;
   }
 };
 
 // New function: Search driver by ET ID
 export const searchDriverById = async (driverId: string) => {
-  console.log(`Searching for driver with ET ID: ${driverId} in city ID: ${DEFAULT_CITY_ID}`);
+  console.log(`DEBUG: searchDriverById called with driverId: ${driverId}`);
   try {
     const trimmedQuery = driverId.trim();
     if (trimmedQuery.length === 0) {
@@ -132,11 +166,11 @@ export const searchDriverById = async (driverId: string) => {
     
     const endpoint = `driver/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`;
     const data = await fetchNewApi(endpoint);
-    console.log("Driver search results:", data);
+    console.log("DEBUG: Driver search results:", data);
     
     return data;
   } catch (error) {
-    console.error("Driver search error:", error);
+    console.error("DEBUG: Driver search error:", error);
     throw error;
   }
 };
