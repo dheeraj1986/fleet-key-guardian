@@ -1,7 +1,7 @@
 
 // Define constants for API calls
-const DEFAULT_CITY_ID = 2; // Updated to use city ID 2 as per provided curl commands
-const API_BASE_URL = "https://api-dev.everestfleet.com";
+const DEFAULT_CITY_ID = 2; // City ID 2 for all API calls
+const API_BASE_URL = "https://api-dev.everestfleet.com/jarvis_api/api";
 const KEY_API_BASE_URL = "https://dev.everestfleet.com";
 const AUTH_TOKEN = "7768c7f4c38e5cf8105bffd663cae9e29e510b1b";
 
@@ -76,9 +76,9 @@ export const searchCarByNumber = async (carNumber: string) => {
     }
     
     // Step 1: Get car by registration number
-    const endpoint = `jarvis_api/api/car/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`;
+    const endpoint = `car/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`;
     const carResponse = await fetchNewApi(endpoint);
-    console.log(`Step 1 parsed JSON results:`, JSON.stringify(carResponse));
+    console.log(`Step 1 car search results:`, carResponse);
     
     if (!carResponse || !carResponse.length) {
       console.log("No car found in Step 1");
@@ -95,7 +95,7 @@ export const searchCarByNumber = async (carNumber: string) => {
     console.log(`Found car ID: ${carId}, fetching key details`);
     const keyEndpoint = `car_key/key-details?car_id=${carId}`;
     const keyResponse = await fetchKeyApi(keyEndpoint);
-    console.log(`Key details for car ID ${carId}:`, JSON.stringify(keyResponse));
+    console.log(`Key details for car ID ${carId}:`, keyResponse);
     
     // Combine car and key data
     const carWithKeys = {
@@ -119,7 +119,7 @@ export const searchDriverById = async (driverId: string) => {
       return { data: [] };
     }
     
-    const endpoint = `jarvis_api/api/driver/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`;
+    const endpoint = `driver/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`;
     const data = await fetchNewApi(endpoint);
     console.log("Driver search results:", data);
     
