@@ -137,6 +137,12 @@ export const searchCarByNumber = async (carNumber: string) => {
     const url = `${API_DEV_URL}/${endpoint}`;
     console.log(`Step 1 URL: ${url}`);
     
+    // Include complete request details for debugging
+    console.log("Step 1 Request headers:", {
+      'Content-Type': 'application/json',
+      'Authorization': `Token ${API_TOKEN}`
+    });
+    
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -149,17 +155,22 @@ export const searchCarByNumber = async (carNumber: string) => {
     
     console.log(`Step 1 response status: ${response.status}`);
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Step 1 API error response text: ${errorText}`);
-      throw new Error(`Step 1 API error: ${response.status} ${response.statusText}`);
+    // Log the raw response text for debugging
+    const responseText = await response.text();
+    console.log(`Step 1 Raw response: ${responseText}`);
+    
+    // Parse the response as JSON, but handle the case where it might not be valid JSON
+    let carData;
+    try {
+      carData = JSON.parse(responseText);
+      console.log("Step 1 parsed JSON results:", carData);
+    } catch (parseError) {
+      console.error("Failed to parse Step 1 response as JSON:", parseError);
+      return { data: [] };
     }
     
-    const carData = await response.json();
-    console.log("Step 1 results:", carData);
-    
     if (!carData || !carData.data || carData.data.length === 0) {
-      console.log("No cars found in Step 1");
+      console.log("No cars found in Step 1 - API returned empty data array");
       return { data: [] };
     }
     
@@ -191,14 +202,20 @@ export const searchCarByNumber = async (carNumber: string) => {
             credentials: 'include',
           });
           
-          if (!detailsResponse.ok) {
-            console.error(`Failed to fetch details for car ID ${carId}: ${detailsResponse.status}`);
+          console.log(`Step 2 response status for car ID ${carId}: ${detailsResponse.status}`);
+          
+          // Log raw response for debugging
+          const detailsText = await detailsResponse.text();
+          console.log(`Step 2 Raw response for car ID ${carId}: ${detailsText}`);
+          
+          try {
+            const detailsData = JSON.parse(detailsText);
+            console.log(`Key details for car ID ${carId}:`, detailsData);
+            return detailsData;
+          } catch (parseError) {
+            console.error(`Failed to parse Step 2 response as JSON for car ID ${carId}:`, parseError);
             return null;
           }
-          
-          const detailsData = await detailsResponse.json();
-          console.log(`Key details for car ID ${carId}:`, detailsData);
-          return detailsData;
         } catch (error) {
           console.error(`Error fetching details for car ID ${carId}:`, error);
           return null;
@@ -212,6 +229,7 @@ export const searchCarByNumber = async (carNumber: string) => {
       .flatMap(result => result?.data || []);
     
     console.log("Final combined search results:", validCarsData);
+    console.log("Final result count:", validCarsData.length);
     
     // For test case - log the detailed structure of the result
     if (carNumber === "KA53AL9351") {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useKeyManagement } from "@/contexts/KeyManagementContext";
 import CarCard from "@/components/CarCard";
@@ -31,6 +30,8 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [apiStep1Response, setApiStep1Response] = useState<any>(null);
+  const [apiStep2Response, setApiStep2Response] = useState<any>(null);
   
   const cars = getFilteredCars(filter);
   
@@ -51,11 +52,15 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
       // If search is cleared, revert to filtered cars from context
       updateFilteredCars(cars, "", sortBy);
       setSearchResults([]);
+      setApiStep1Response(null);
+      setApiStep2Response(null);
       return;
     }
     
     setIsSearching(true);
     setSearchError(false);
+    setApiStep1Response(null);
+    setApiStep2Response(null);
     
     try {
       console.log(`Starting two-step search for car with number: ${query}`);
@@ -68,6 +73,33 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
       // Using the updated searchCarByNumber function from apiService that implements the two-step process
       const result = await searchCarByNumber(query);
       console.log("Two-step search complete. Results:", result);
+      
+      // Parse and store API responses from console logs (hack for debugging)
+      if (query === "KA53AL9351") {
+        // This is a simple mechanism to extract API responses from console logs
+        // Not intended for production use, just for debugging this issue
+        window.addEventListener('consolelog', function(e: any) {
+          const log = e.detail.log;
+          if (typeof log === 'string') {
+            if (log.includes("Step 1 parsed JSON results:")) {
+              try {
+                const jsonStr = log.split("Step 1 parsed JSON results:")[1].trim();
+                setApiStep1Response(JSON.parse(jsonStr));
+              } catch (e) {
+                console.error("Failed to parse Step 1 response", e);
+              }
+            }
+            if (log.includes("Key details for car ID")) {
+              try {
+                const jsonStr = log.split("Key details for car ID")[1].split(":")[1].trim();
+                setApiStep2Response(JSON.parse(jsonStr));
+              } catch (e) {
+                console.error("Failed to parse Step 2 response", e);
+              }
+            }
+          }
+        });
+      }
       
       // Save the raw search results for inspection
       setSearchResults(result.data || []);
@@ -187,14 +219,33 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
         </div>
       )}
 
-      {/* Debug section for the test case */}
-      {searchQuery === "KA53AL9351" && searchResults.length > 0 && (
+      {/* Debug section for the test case with enhanced API response display */}
+      {searchQuery === "KA53AL9351" && (
         <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 mb-4">
           <h3 className="font-semibold text-sm mb-2">Search Results Debug Info:</h3>
-          <p className="text-xs">Result count: {searchResults.length}</p>
-          <pre className="text-xs overflow-auto max-h-32 p-2 bg-gray-100 rounded mt-2">
-            {JSON.stringify(searchResults, null, 2)}
-          </pre>
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-xs font-semibold">API Step 1 (Get Car ID):</h4>
+              <pre className="text-xs overflow-auto max-h-32 p-2 bg-gray-100 rounded mt-1">
+                {apiStep1Response ? JSON.stringify(apiStep1Response, null, 2) : "No response captured"}
+              </pre>
+            </div>
+            
+            <div>
+              <h4 className="text-xs font-semibold">API Step 2 (Get Key Details):</h4>
+              <pre className="text-xs overflow-auto max-h-32 p-2 bg-gray-100 rounded mt-1">
+                {apiStep2Response ? JSON.stringify(apiStep2Response, null, 2) : "No response captured"}
+              </pre>
+            </div>
+            
+            <div>
+              <h4 className="text-xs font-semibold">Final Search Results:</h4>
+              <p className="text-xs">Result count: {searchResults.length}</p>
+              <pre className="text-xs overflow-auto max-h-32 p-2 bg-gray-100 rounded mt-1">
+                {JSON.stringify(searchResults, null, 2)}
+              </pre>
+            </div>
+          </div>
         </div>
       )}
       
