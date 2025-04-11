@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useKeyManagement } from "@/contexts/KeyManagementContext";
 import CarCard from "@/components/CarCard";
@@ -41,25 +40,39 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
       
       try {
         console.log(`Searching for car: ${query}`);
-        const response = await apiService.searchCars(query);
-        console.log("Search response:", response);
         
-        if (response && response.data) {
-          const adaptedCars = response.data.map(apiService.adaptCarFromApi);
-          setFilteredCars(adaptedCars);
-          
-          // Show a toast notification with search results
-          toast({
-            title: "Search Results",
-            description: `Found ${adaptedCars.length} cars matching "${query}"`,
-          });
+        // First try the new car number search API
+        const carNumberResponse = await apiService.searchCarByNumber(query);
+        console.log("Car number search response:", carNumberResponse);
+        
+        let carsFound = [];
+        
+        // Check if we got results from the new API
+        if (carNumberResponse && carNumberResponse.data && carNumberResponse.data.length > 0) {
+          // Map the response to our car format if needed
+          carsFound = carNumberResponse.data.map((car: any) => ({
+            id: car.id?.toString() || "",
+            regNumber: car.reg_number || car.registration_number || "",
+            model: car.model || "",
+            keys: []  // Keys will be populated separately if needed
+          }));
         } else {
-          setFilteredCars([]);
-          toast({
-            title: "No Results",
-            description: `No cars found matching "${query}"`,
-          });
+          // Fall back to the original search API
+          console.log("No results from car number search, falling back to regular search");
+          const response = await apiService.searchCars(query);
+          
+          if (response && response.data) {
+            carsFound = response.data.map(apiService.adaptCarFromApi);
+          }
         }
+        
+        setFilteredCars(carsFound);
+        
+        // Show a toast notification with search results
+        toast({
+          title: "Search Results",
+          description: `Found ${carsFound.length} cars matching "${query}"`,
+        });
       } catch (error) {
         console.error("Error searching cars:", error);
         setSearchError(true);
@@ -137,6 +150,7 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <SearchBar 
           onSearch={handleSearch} 
+          searchType="car"
           placeholder="Search by registration or model..." 
           initialValue={searchQuery}
         />

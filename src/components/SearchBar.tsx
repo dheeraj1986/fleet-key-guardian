@@ -4,15 +4,18 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import * as apiService from "@/services/apiService";
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
+  searchType?: "car" | "driver";
   placeholder?: string;
   initialValue?: string;
 }
 
 const SearchBar: React.FC<SearchBarProps> = ({ 
   onSearch, 
+  searchType = "car",
   placeholder = "Search car registration...",
   initialValue = ""
 }) => {
@@ -25,7 +28,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
     setSearchQuery(initialValue);
   }, [initialValue]);
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (searchQuery.trim().length === 0) {
@@ -38,8 +41,36 @@ const SearchBar: React.FC<SearchBarProps> = ({
     }
     
     setIsSearching(true);
-    onSearch(searchQuery);
-    setIsSearching(false);
+    
+    try {
+      // Use the appropriate search function based on searchType
+      if (searchType === "car") {
+        // Try the new car number search API first
+        const result = await apiService.searchCarByNumber(searchQuery);
+        console.log("Car number search result:", result);
+        
+        // If no results or error, fall back to the original search
+        if (!result || !result.data || result.data.length === 0) {
+          console.log("No results from car number search, falling back to regular search");
+        }
+      } else if (searchType === "driver") {
+        // Use driver search API
+        await apiService.searchDriverById(searchQuery);
+      }
+      
+      // Call the onSearch callback with the query regardless
+      // The parent component can decide how to handle the results
+      onSearch(searchQuery);
+    } catch (error) {
+      console.error("Search error:", error);
+      toast({
+        title: "Search Error",
+        description: "Failed to perform search. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,10 +85,22 @@ const SearchBar: React.FC<SearchBarProps> = ({
     // Only trigger search if value is not empty and has at least 3 characters
     if (newValue.trim().length >= 3) {
       // Set a timeout to trigger search after user stops typing
-      const timeout = setTimeout(() => {
+      const timeout = setTimeout(async () => {
         setIsSearching(true);
-        onSearch(newValue);
-        setIsSearching(false);
+        try {
+          if (searchType === "car") {
+            // Try the new car number search API
+            await apiService.searchCarByNumber(newValue);
+          } else if (searchType === "driver") {
+            // Use driver search API
+            await apiService.searchDriverById(newValue);
+          }
+          onSearch(newValue);
+        } catch (error) {
+          console.error("Auto-search error:", error);
+        } finally {
+          setIsSearching(false);
+        }
       }, 500); // 500ms debounce
       
       setTypingTimeout(timeout);

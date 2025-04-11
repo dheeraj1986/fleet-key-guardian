@@ -1,9 +1,10 @@
-
 import { Car, CarKey, KeyStatus, DashboardStats } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 
 const BASE_URL = "https://dev.everestfleet.com";
+const API_DEV_URL = "https://api-dev.everestfleet.com";
 const API_TOKEN = "7768c7f4c38e5cf8105bffd663cae9e29e510b1b";
+const DEFAULT_CITY_ID = "2"; // Hard-coded city ID as requested
 
 // Helper function for making API requests
 const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
@@ -63,6 +64,84 @@ export const searchCars = async (query: string) => {
   } catch (error) {
     console.error("Search error:", error);
     // Return empty array on error to prevent UI crashes
+    return { data: [] };
+  }
+};
+
+// New function: Search car by number using the new API
+export const searchCarByNumber = async (carNumber: string) => {
+  console.log(`Searching for car with number: ${carNumber} in city ID: ${DEFAULT_CITY_ID}`);
+  try {
+    const trimmedQuery = carNumber.trim();
+    if (trimmedQuery.length === 0) {
+      return { data: [] };
+    }
+    
+    const response = await fetch(
+      `${API_DEV_URL}/jarvis_api/api/car/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`, 
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${API_TOKEN}`,
+        },
+        mode: 'cors',
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log("Car search by number results:", data);
+    
+    return data;
+  } catch (error) {
+    console.error("Car search by number error:", error);
+    toast({
+      title: "Search Error",
+      description: error instanceof Error ? error.message : "Failed to search for car number",
+      variant: "destructive",
+    });
+    return { data: [] };
+  }
+};
+
+// New function: Search driver by ET ID
+export const searchDriverById = async (driverId: string) => {
+  console.log(`Searching for driver with ET ID: ${driverId} in city ID: ${DEFAULT_CITY_ID}`);
+  try {
+    const trimmedQuery = driverId.trim();
+    if (trimmedQuery.length === 0) {
+      return { data: [] };
+    }
+    
+    const response = await fetch(
+      `${API_DEV_URL}/jarvis_api/api/driver/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`, 
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${API_TOKEN}`,
+        },
+        mode: 'cors',
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log("Driver search results:", data);
+    
+    return data;
+  } catch (error) {
+    console.error("Driver search error:", error);
+    toast({
+      title: "Search Error",
+      description: error instanceof Error ? error.message : "Failed to search for driver",
+      variant: "destructive",
+    });
     return { data: [] };
   }
 };
