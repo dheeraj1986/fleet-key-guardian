@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useKeyManagement } from "@/contexts/KeyManagementContext";
 import CarCard from "@/components/CarCard";
@@ -12,6 +13,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { searchCarByNumber } from "@/services/apiService";
+import { adaptCarFromApi } from "@/services/apiService";
 
 // Define the Car interface to match what we'll get from the API
 interface Car {
@@ -40,7 +42,7 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
     }
   };
   
-  // Function to directly search the API
+  // Function to directly search the API using the two-step process
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
     
@@ -54,20 +56,26 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
     setSearchError(false);
     
     try {
-      console.log(`Searching for car: ${query}`);
+      console.log(`Starting two-step search for car with number: ${query}`);
       
-      // Using the improved searchCarByNumber function from apiService
+      // Using the updated searchCarByNumber function from apiService that implements the two-step process
       const result = await searchCarByNumber(query);
-      console.log("Search result:", result);
+      console.log("Two-step search complete. Results:", result);
+      
+      if (!result || !result.data || result.data.length === 0) {
+        console.log("No cars found in search");
+        setFilteredCars([]);
+        toast({
+          title: "Search Results",
+          description: `No cars found matching "${query}"`,
+        });
+        return;
+      }
       
       // Map the API response to our car format
-      const carsFound = result && result.data ? result.data.map((car: any) => ({
-        id: car.id?.toString() || "",
-        regNumber: car.reg_number || car.registration_number || "",
-        model: car.model || "",
-        keys: []  // Keys will be empty initially
-      })) : [];
+      const carsFound = result.data.map((car: any) => adaptCarFromApi(car));
       
+      console.log("Processed car results:", carsFound);
       setFilteredCars(carsFound);
       
       toast({
@@ -122,7 +130,7 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
   const isLoading = isContextLoading || isSearching;
   const isError = isContextError || searchError;
   
-  if (isLoading && !searchQuery) {
+  if (isLoading && !searchQuery && filteredCars.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -165,7 +173,7 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
       {isSearching && (
         <div className="flex items-center justify-center py-4">
           <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
-          <p>Searching...</p>
+          <p>Searching cars...</p>
         </div>
       )}
       

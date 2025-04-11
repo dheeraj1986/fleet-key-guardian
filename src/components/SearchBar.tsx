@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, AlertCircle } from "lucide-react";
+import { Search, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -44,10 +44,9 @@ const SearchBar: React.FC<SearchBarProps> = ({
     setIsSearching(true);
     
     try {
-      console.log(`Starting search for ${searchType} with query: ${searchQuery}`);
+      console.log(`Starting ${searchType} search with query: ${searchQuery}`);
       
-      // Call the onSearch callback with the query immediately
-      // This will let the parent component handle the search
+      // Call the onSearch callback with the query
       onSearch(searchQuery);
       setSearchError(null);
       
@@ -61,7 +60,10 @@ const SearchBar: React.FC<SearchBarProps> = ({
         variant: "destructive",
       });
     } finally {
-      setIsSearching(false);
+      // Let parent component control the loading state
+      setTimeout(() => {
+        setIsSearching(false);
+      }, 500);
     }
   };
 
@@ -83,7 +85,11 @@ const SearchBar: React.FC<SearchBarProps> = ({
           className={searchError ? "border-red-500" : ""}
         />
         <Button type="submit" size="icon" variant="outline" disabled={isSearching}>
-          <Search className="h-4 w-4" />
+          {isSearching ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Search className="h-4 w-4" />
+          )}
         </Button>
       </form>
       

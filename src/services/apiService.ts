@@ -1,4 +1,3 @@
-
 import { Car, CarKey, KeyStatus, DashboardStats } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 
@@ -115,22 +114,22 @@ export const searchCars = async (query: string) => {
   }
 };
 
-// New function: Search car by number using the new API
+// New function: Search car by number using the two-step process
 export const searchCarByNumber = async (carNumber: string) => {
-  console.log(`Searching for car with number: ${carNumber} in city ID: ${DEFAULT_CITY_ID}`);
+  console.log(`Starting two-step search process for car number: ${carNumber}`);
   try {
     const trimmedQuery = carNumber.trim();
     if (trimmedQuery.length === 0) {
       return { data: [] };
     }
     
-    // Create the API endpoint URL
+    // Step 1: First API call to get car_id
+    console.log(`Step 1: Searching for car with number: ${carNumber} in city ID: ${DEFAULT_CITY_ID}`);
     const endpoint = `jarvis_api/api/car/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`;
-    console.log(`Search car endpoint: ${endpoint}`);
     
     // Make a direct fetch request to avoid any middleware issues
     const url = `${API_DEV_URL}/${endpoint}`;
-    console.log(`Full URL: ${url}`);
+    console.log(`Step 1 URL: ${url}`);
     
     const response = await fetch(url, {
       method: 'GET',
@@ -142,20 +141,75 @@ export const searchCarByNumber = async (carNumber: string) => {
       credentials: 'include',
     });
     
-    console.log(`Direct fetch response status: ${response.status}`);
+    console.log(`Step 1 response status: ${response.status}`);
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`API error response text: ${errorText}`);
-      throw new Error(`API error: ${response.status} ${response.statusText}`);
+      console.error(`Step 1 API error response text: ${errorText}`);
+      throw new Error(`Step 1 API error: ${response.status} ${response.statusText}`);
     }
     
-    const data = await response.json();
-    console.log("Car search direct fetch results:", data);
+    const carData = await response.json();
+    console.log("Step 1 results:", carData);
     
-    return data;
+    if (!carData || !carData.data || carData.data.length === 0) {
+      console.log("No cars found in Step 1");
+      return { data: [] };
+    }
+    
+    // Extract car_id from first API response
+    const carIds = carData.data.map((car: any) => car.id).filter(Boolean);
+    console.log("Extracted car IDs:", carIds);
+    
+    if (carIds.length === 0) {
+      console.log("No valid car IDs found");
+      return { data: [] };
+    }
+    
+    // Step 2: For each car_id, fetch detailed car information with keys
+    console.log("Step 2: Fetching key details for cars");
+    const carsWithKeys = await Promise.all(
+      carIds.map(async (carId: string | number) => {
+        console.log(`Fetching key details for car ID: ${carId}`);
+        try {
+          const detailsUrl = `${BASE_URL}/car_key/key-details?car_id=${carId}`;
+          console.log(`Step 2 URL: ${detailsUrl}`);
+          
+          const detailsResponse = await fetch(detailsUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Token ${API_TOKEN}`,
+            },
+            mode: 'cors',
+            credentials: 'include',
+          });
+          
+          if (!detailsResponse.ok) {
+            console.error(`Failed to fetch details for car ID ${carId}: ${detailsResponse.status}`);
+            return null;
+          }
+          
+          const detailsData = await detailsResponse.json();
+          console.log(`Key details for car ID ${carId}:`, detailsData);
+          return detailsData;
+        } catch (error) {
+          console.error(`Error fetching details for car ID ${carId}:`, error);
+          return null;
+        }
+      })
+    );
+    
+    // Filter out nulls and flatten the results
+    const validCarsData = carsWithKeys
+      .filter(Boolean)
+      .flatMap(result => result?.data || []);
+    
+    console.log("Final combined search results:", validCarsData);
+    return { data: validCarsData };
+    
   } catch (error) {
-    console.error("Car search by number error details:", error);
+    console.error("Two-step car search error details:", error);
     // Return empty data instead of throwing to prevent UI crashes
     return { data: [] };
   }
