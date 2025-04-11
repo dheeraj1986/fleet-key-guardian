@@ -1,5 +1,6 @@
 
 import { Car, CarKey, KeyStatus, DashboardStats } from "@/types";
+import { toast } from "@/components/ui/use-toast";
 
 const BASE_URL = "https://dev.everestfleet.com";
 const API_TOKEN = "7768c7f4c38e5cf8105bffd663cae9e29e510b1b";
@@ -12,49 +13,98 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
       'Authorization': `Token ${API_TOKEN}`,
       ...options.headers,
     },
+    // Add mode: 'cors' to handle CORS
+    mode: 'cors',
   };
 
   console.log(`Making API request to: ${BASE_URL}/${endpoint}`);
   
-  const response = await fetch(`${BASE_URL}/${endpoint}`, {
-    ...defaultOptions,
-    ...options,
-  });
+  try {
+    const response = await fetch(`${BASE_URL}/${endpoint}`, {
+      ...defaultOptions,
+      ...options,
+    });
 
-  console.log(`API response status: ${response.status}`);
+    console.log(`API response status: ${response.status}`);
 
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("API response data:", data);
+    return data;
+  } catch (error) {
+    console.error(`API error for ${endpoint}:`, error);
+    // Show toast notification for API errors
+    toast({
+      title: "API Error",
+      description: error instanceof Error ? error.message : "Failed to connect to API",
+      variant: "destructive",
+    });
+    throw error;
   }
-
-  const data = await response.json();
-  console.log("API response data:", data);
-  return data;
 };
 
 // Search cars by registration or model
 export const searchCars = async (query: string) => {
-  return fetchApi(`car_key/key-details?search=${encodeURIComponent(query)}`);
+  console.log(`Searching for car with query: ${query}`);
+  try {
+    const trimmedQuery = query.trim();
+    if (trimmedQuery.length === 0) {
+      return { data: [] };
+    }
+    
+    const data = await fetchApi(`car_key/key-details?search=${encodeURIComponent(trimmedQuery)}`);
+    console.log("Search results:", data);
+    
+    // Ensure we return an empty array if no data is found
+    return data?.data ? data : { data: [] };
+  } catch (error) {
+    console.error("Search error:", error);
+    // Return empty array on error to prevent UI crashes
+    return { data: [] };
+  }
 };
 
 // Get cars by location and key status
 export const getCarsByLocationAndStatus = async (locationId: string, status: KeyStatus) => {
-  return fetchApi(`car_key/key-details?loc_id=${locationId}&key_status=${status}`);
+  try {
+    return fetchApi(`car_key/key-details?loc_id=${locationId}&key_status=${status}`);
+  } catch (error) {
+    console.error("Error getting cars by location and status:", error);
+    return { data: [] };
+  }
 };
 
 // Get car details with key information
 export const getCarDetails = async (carId: string) => {
-  return fetchApi(`car_key/key-details?car_id=${carId}`);
+  try {
+    return fetchApi(`car_key/key-details?car_id=${carId}`);
+  } catch (error) {
+    console.error("Error getting car details:", error);
+    return { data: [] };
+  }
 };
 
 // Get key list for a specific car
 export const getKeyList = async (carId: string) => {
-  return fetchApi(`car_key/keys?car_id=${carId}`);
+  try {
+    return fetchApi(`car_key/keys?car_id=${carId}`);
+  } catch (error) {
+    console.error("Error getting key list:", error);
+    return { data: [] };
+  }
 };
 
 // Get key details
 export const getKeyDetails = async (keyId: string) => {
-  return fetchApi(`car_key/keys/${keyId}`);
+  try {
+    return fetchApi(`car_key/keys/${keyId}`);
+  } catch (error) {
+    console.error("Error getting key details:", error);
+    return null;
+  }
 };
 
 // Add new key
@@ -108,12 +158,31 @@ export const issueKey = async (keyId: string, driverId: string, purpose: string,
 
 // Get key logs/history
 export const getKeyLogs = async (keyId: string, page = 1, pageSize = 10) => {
-  return fetchApi(`car_key/history/${keyId}?page=${page}&page_size=${pageSize}`);
+  try {
+    return fetchApi(`car_key/history/${keyId}?page=${page}&page_size=${pageSize}`);
+  } catch (error) {
+    console.error("Error getting key logs:", error);
+    return { data: [] };
+  }
 };
 
 // Get key statistics for a location
 export const getKeyStatistics = async (locationId: string) => {
-  return fetchApi(`car_key/statistics?loc_id=${locationId}`);
+  try {
+    return fetchApi(`car_key/statistics?loc_id=${locationId}`);
+  } catch (error) {
+    console.error("Error getting key statistics:", error);
+    return {
+      data: {
+        total_cars: 0,
+        total_keys: 0,
+        available_keys: 0,
+        issued_keys: 0,
+        missing_keys: 0,
+        recovered_keys: 0
+      }
+    };
+  }
 };
 
 // Adapter functions to convert API response to our app types

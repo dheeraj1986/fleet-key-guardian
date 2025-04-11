@@ -35,7 +35,7 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
   
   // Direct search function for specific car numbers
   const performDirectSearch = async (query: string) => {
-    if (query.trim().length > 3) {
+    if (query.trim().length > 2) {
       setIsSearching(true);
       setSearchError(false);
       
@@ -55,6 +55,10 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
           });
         } else {
           setFilteredCars([]);
+          toast({
+            title: "No Results",
+            description: `No cars found matching "${query}"`,
+          });
         }
       } catch (error) {
         console.error("Error searching cars:", error);
@@ -64,6 +68,7 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
           description: "Failed to search for cars. Please try again.",
           variant: "destructive",
         });
+        setFilteredCars([]);
       } finally {
         setIsSearching(false);
       }
@@ -120,15 +125,6 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
     );
   }
   
-  if (isError) {
-    return (
-      <div className="text-center py-10">
-        <p className="text-xl font-semibold text-destructive">Error loading cars</p>
-        <p className="text-gray-500">Please try again later</p>
-      </div>
-    );
-  }
-  
   return (
     <div className="space-y-6">
       <div>
@@ -159,13 +155,20 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
         </div>
       </div>
       
+      {isError && (
+        <div className="text-center py-6 bg-red-50 rounded-lg">
+          <p className="text-xl font-semibold text-destructive">Error loading cars</p>
+          <p className="text-gray-500">Please try again later or check your connection</p>
+        </div>
+      )}
+      
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {filteredCars.map(car => (
           <CarCard key={car.id} car={car} />
         ))}
       </div>
       
-      {filteredCars.length === 0 && (
+      {filteredCars.length === 0 && !isLoading && !isError && (
         <div className="text-center py-10">
           <p className="text-xl font-semibold text-gray-500">No cars found</p>
           <p className="text-gray-400">Try adjusting your search criteria</p>
