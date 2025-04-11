@@ -1,3 +1,4 @@
+
 import { Car, CarKey, KeyStatus, DashboardStats } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 
@@ -62,6 +63,15 @@ const fetchNewApi = async (endpoint: string, options: RequestInit = {}) => {
   console.log(`Making API request to new API: ${url}`);
   
   try {
+    console.log('API Request Options:', {
+      ...defaultOptions,
+      ...options,
+      headers: {
+        ...defaultOptions.headers,
+        ...options.headers
+      }
+    });
+    
     const response = await fetch(url, {
       ...defaultOptions,
       ...options,
@@ -114,13 +124,40 @@ export const searchCarByNumber = async (carNumber: string) => {
       return { data: [] };
     }
     
-    const data = await fetchNewApi(`jarvis_api/api/car/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`);
-    console.log("Car search by number results:", data);
+    // Create the API endpoint URL
+    const endpoint = `jarvis_api/api/car/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`;
+    console.log(`Search car endpoint: ${endpoint}`);
+    
+    // Make a direct fetch request to avoid any middleware issues
+    const url = `${API_DEV_URL}/${endpoint}`;
+    console.log(`Full URL: ${url}`);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token ${API_TOKEN}`,
+      },
+      mode: 'cors',
+      credentials: 'include',
+    });
+    
+    console.log(`Direct fetch response status: ${response.status}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`API error response text: ${errorText}`);
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log("Car search direct fetch results:", data);
     
     return data;
   } catch (error) {
-    console.error("Car search by number error:", error);
-    throw error; // Let the calling component handle the error
+    console.error("Car search by number error details:", error);
+    // Return empty data instead of throwing to prevent UI crashes
+    return { data: [] };
   }
 };
 

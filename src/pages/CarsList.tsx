@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useKeyManagement } from "@/contexts/KeyManagementContext";
 import CarCard from "@/components/CarCard";
@@ -12,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { searchCarByNumber } from "@/services/apiService";
 
 // Define the Car interface to match what we'll get from the API
 interface Car {
@@ -56,33 +56,12 @@ const CarsList: React.FC<{ filter?: 'all' | 'missing-keys' | 'issued-keys' | 're
     try {
       console.log(`Searching for car: ${query}`);
       
-      const cityId = "6"; // Hardcoded city ID
-      const apiUrl = `https://api-dev.everestfleet.com/jarvis_api/api/car/${cityId},${encodeURIComponent(query)}/`;
-      
-      console.log(`Making API request to: ${apiUrl}`);
-      
-      const response = await fetch(apiUrl, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Token 7768c7f4c38e5cf8105bffd663cae9e29e510b1b`,
-        },
-        mode: 'cors',
-        credentials: 'include',
-      });
-      
-      console.log(`API response status: ${response.status}`);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`API error response: ${errorText}`);
-        throw new Error(`API error: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      console.log("API response data:", data);
+      // Using the improved searchCarByNumber function from apiService
+      const result = await searchCarByNumber(query);
+      console.log("Search result:", result);
       
       // Map the API response to our car format
-      const carsFound = data && data.data ? data.data.map((car: any) => ({
+      const carsFound = result && result.data ? result.data.map((car: any) => ({
         id: car.id?.toString() || "",
         regNumber: car.reg_number || car.registration_number || "",
         model: car.model || "",

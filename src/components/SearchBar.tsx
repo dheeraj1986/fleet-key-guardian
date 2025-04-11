@@ -46,44 +46,11 @@ const SearchBar: React.FC<SearchBarProps> = ({
     try {
       console.log(`Starting search for ${searchType} with query: ${searchQuery}`);
       
-      const cityId = "6"; // Hardcoded city ID
-      
-      if (searchType === "car") {
-        const apiUrl = `https://api-dev.everestfleet.com/jarvis_api/api/car/${cityId},${encodeURIComponent(searchQuery)}/`;
-        console.log(`Making API request to: ${apiUrl}`);
-        
-        const response = await fetch(apiUrl, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Token 7768c7f4c38e5cf8105bffd663cae9e29e510b1b`,
-          },
-          mode: 'cors',
-          credentials: 'include',
-        });
-        
-        console.log(`API response status: ${response.status}`);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`API error response: ${errorText}`);
-          throw new Error(`API error: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        console.log("API response data:", data);
-      } else if (searchType === "driver") {
-        // For now, we're focusing only on car search
-        console.log("Driver search not implemented yet");
-      }
-      
-      // Call the onSearch callback with the query
+      // Call the onSearch callback with the query immediately
+      // This will let the parent component handle the search
       onSearch(searchQuery);
       setSearchError(null);
       
-      toast({
-        title: "Search Complete",
-        description: "Search completed successfully",
-      });
     } catch (error) {
       console.error("Search error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to perform search";
