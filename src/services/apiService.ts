@@ -4,7 +4,7 @@ import { toast } from "@/components/ui/use-toast";
 const BASE_URL = "https://dev.everestfleet.com";
 const API_DEV_URL = "https://api-dev.everestfleet.com";
 const API_TOKEN = "7768c7f4c38e5cf8105bffd663cae9e29e510b1b";
-const DEFAULT_CITY_ID = "2"; // Hard-coded city ID as requested
+const DEFAULT_CITY_ID = "6"; // Updated from 2 to 6 as requested
 
 // Helper function for making API requests
 const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
