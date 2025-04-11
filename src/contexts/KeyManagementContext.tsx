@@ -37,16 +37,23 @@ export const KeyManagementProvider: React.FC<{ children: React.ReactNode }> = ({
     queryKey: ['cars'],
     queryFn: async () => {
       try {
+        console.log("Fetching all cars data...");
         const response = await apiService.searchCars("");
+        console.log("Cars data response:", response);
         return response.data?.map(apiService.adaptCarFromApi) || [];
       } catch (error) {
         console.error("Error fetching cars:", error);
+        toast({ 
+          title: "Error",
+          description: "Failed to load cars data. Please try again later.",
+          variant: "destructive"
+        });
         return [];
       }
     }
   });
   
-  // Fetch stats
+  // Fetch stats - updating to use city ID 6 instead of 1
   const { 
     data: stats = {
       totalCars: 0,
@@ -62,12 +69,18 @@ export const KeyManagementProvider: React.FC<{ children: React.ReactNode }> = ({
     queryKey: ['stats'],
     queryFn: async () => {
       try {
-        // Using the first location for now - in a real app, you might need to select
-        // a location from a dropdown or get the user's current location
-        const response = await apiService.getKeyStatistics("1"); 
+        // Updated to use city ID 6 instead of 1
+        console.log("Fetching key statistics for location ID 6...");
+        const response = await apiService.getKeyStatistics("6"); 
+        console.log("Key statistics response:", response);
         return apiService.adaptStatsFromApi(response.data);
       } catch (error) {
         console.error("Error fetching stats:", error);
+        toast({ 
+          title: "Error",
+          description: "Failed to load dashboard statistics. Please try again later.",
+          variant: "destructive"
+        });
         return {
           totalCars: 0,
           totalKeys: 0,

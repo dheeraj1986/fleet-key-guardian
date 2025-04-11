@@ -6,7 +6,7 @@ const API_DEV_URL = "https://api-dev.everestfleet.com";
 const API_TOKEN = "7768c7f4c38e5cf8105bffd663cae9e29e510b1b";
 const DEFAULT_CITY_ID = "6"; // Updated from 2 to 6 as requested
 
-// Helper function for making API requests
+// Helper function for making API requests with improved error handling and CORS support
 const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
   const defaultOptions: RequestInit = {
     headers: {
@@ -20,10 +20,11 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
     credentials: 'include',
   };
 
-  console.log(`Making API request to: ${BASE_URL}/${endpoint}`);
+  const url = `${BASE_URL}/${endpoint}`;
+  console.log(`Making API request to: ${url}`);
   
   try {
-    const response = await fetch(`${BASE_URL}/${endpoint}`, {
+    const response = await fetch(url, {
       ...defaultOptions,
       ...options,
     });
@@ -31,6 +32,8 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
     console.log(`API response status: ${response.status}`);
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`API error response: ${errorText}`);
       throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
 
@@ -39,12 +42,44 @@ const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
     return data;
   } catch (error) {
     console.error(`API error for ${endpoint}:`, error);
-    // Show toast notification for API errors
-    toast({
-      title: "API Error",
-      description: error instanceof Error ? error.message : "Failed to connect to API",
-      variant: "destructive",
+    throw error;
+  }
+};
+
+// Helper function for making requests to the new API endpoint
+const fetchNewApi = async (endpoint: string, options: RequestInit = {}) => {
+  const defaultOptions: RequestInit = {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Token ${API_TOKEN}`,
+      ...options.headers,
+    },
+    mode: 'cors',
+    credentials: 'include',
+  };
+
+  const url = `${API_DEV_URL}/${endpoint}`;
+  console.log(`Making API request to new API: ${url}`);
+  
+  try {
+    const response = await fetch(url, {
+      ...defaultOptions,
+      ...options,
     });
+
+    console.log(`New API response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`New API error response: ${errorText}`);
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("New API response data:", data);
+    return data;
+  } catch (error) {
+    console.error(`New API error for ${endpoint}:`, error);
     throw error;
   }
 };
@@ -79,35 +114,13 @@ export const searchCarByNumber = async (carNumber: string) => {
       return { data: [] };
     }
     
-    // Improved fetch with error handling and CORS support
-    const response = await fetch(
-      `${API_DEV_URL}/jarvis_api/api/car/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`, 
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Token ${API_TOKEN}`,
-        },
-        mode: 'cors',
-        credentials: 'include',
-      }
-    );
-    
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`);
-    }
-    
-    const data = await response.json();
+    const data = await fetchNewApi(`jarvis_api/api/car/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`);
     console.log("Car search by number results:", data);
     
     return data;
   } catch (error) {
     console.error("Car search by number error:", error);
-    toast({
-      title: "Search Error",
-      description: error instanceof Error ? error.message : "Failed to search for car number",
-      variant: "destructive",
-    });
-    return { data: [] };
+    throw error; // Let the calling component handle the error
   }
 };
 
@@ -120,35 +133,13 @@ export const searchDriverById = async (driverId: string) => {
       return { data: [] };
     }
     
-    // Improved fetch with error handling and CORS support
-    const response = await fetch(
-      `${API_DEV_URL}/jarvis_api/api/driver/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`, 
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Token ${API_TOKEN}`,
-        },
-        mode: 'cors',
-        credentials: 'include',
-      }
-    );
-    
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`);
-    }
-    
-    const data = await response.json();
+    const data = await fetchNewApi(`jarvis_api/api/driver/${DEFAULT_CITY_ID},${encodeURIComponent(trimmedQuery)}/`);
     console.log("Driver search results:", data);
     
     return data;
   } catch (error) {
     console.error("Driver search error:", error);
-    toast({
-      title: "Search Error",
-      description: error instanceof Error ? error.message : "Failed to search for driver",
-      variant: "destructive",
-    });
-    return { data: [] };
+    throw error; // Let the calling component handle the error
   }
 };
 
@@ -254,7 +245,10 @@ export const getKeyLogs = async (keyId: string, page = 1, pageSize = 10) => {
 // Get key statistics for a location
 export const getKeyStatistics = async (locationId: string) => {
   try {
-    return fetchApi(`car_key/statistics?loc_id=${locationId}`);
+    console.log(`Fetching key statistics for location ID: ${locationId}`);
+    const data = await fetchApi(`car_key/statistics?loc_id=${locationId}`);
+    console.log("Key statistics data:", data);
+    return data;
   } catch (error) {
     console.error("Error getting key statistics:", error);
     return {

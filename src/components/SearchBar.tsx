@@ -46,19 +46,27 @@ const SearchBar: React.FC<SearchBarProps> = ({
     setIsSearching(true);
     
     try {
+      console.log(`Starting search for ${searchType} with query: ${searchQuery}`);
+      
       // Use the appropriate search function based on searchType
       if (searchType === "car") {
         // Try the new car number search API first
-        const result = await apiService.searchCarByNumber(searchQuery);
-        console.log("Car number search result:", result);
-        
-        // If no results or error, fall back to the original search
-        if (!result || !result.data || result.data.length === 0) {
-          console.log("No results from car number search, falling back to regular search");
+        try {
+          const result = await apiService.searchCarByNumber(searchQuery);
+          console.log("Car number search result:", result);
           
-          // Add a small delay before the fallback search to avoid potential rate limiting
-          await new Promise(resolve => setTimeout(resolve, 300));
-          
+          // If no results, fall back to the original search
+          if (!result || !result.data || result.data.length === 0) {
+            console.log("No results from car number search, falling back to regular search");
+            
+            // Add a small delay before the fallback search to avoid potential rate limiting
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            const fallbackResult = await apiService.searchCars(searchQuery);
+            console.log("Fallback search result:", fallbackResult);
+          }
+        } catch (error) {
+          console.error("New API search failed, falling back to original search:", error);
           const fallbackResult = await apiService.searchCars(searchQuery);
           console.log("Fallback search result:", fallbackResult);
         }
