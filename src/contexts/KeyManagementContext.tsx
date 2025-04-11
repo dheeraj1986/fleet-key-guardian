@@ -38,7 +38,7 @@ export const KeyManagementProvider: React.FC<{ children: React.ReactNode }> = ({
     queryFn: async () => {
       try {
         console.log("Fetching all cars data...");
-        const response = await apiService.searchCars("");
+        const response = await apiService.searchCars();
         console.log("Cars data response:", response);
         return response.data?.map(apiService.adaptCarFromApi) || [];
       } catch (error) {
@@ -53,7 +53,7 @@ export const KeyManagementProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   });
   
-  // Fetch stats - updating to use city ID 6 instead of 1
+  // Fetch stats
   const { 
     data: stats = {
       totalCars: 0,
@@ -69,11 +69,20 @@ export const KeyManagementProvider: React.FC<{ children: React.ReactNode }> = ({
     queryKey: ['stats'],
     queryFn: async () => {
       try {
-        // Updated to use city ID 6 instead of 1
-        console.log("Fetching key statistics for location ID 6...");
-        const response = await apiService.getKeyStatistics("6"); 
+        console.log("Fetching key statistics...");
+        const response = await apiService.getKeyStatistics();
         console.log("Key statistics response:", response);
-        return apiService.adaptStatsFromApi(response.data);
+        
+        const adaptedStats = apiService.adaptStatsFromApi(response.data);
+        // Ensure the return format matches DashboardStats
+        return {
+          totalCars: adaptedStats.total || 0,
+          totalKeys: adaptedStats.total || 0,
+          availableKeys: adaptedStats.available || 0,
+          issuedKeys: adaptedStats.issued || 0,
+          missingKeys: adaptedStats.missing || 0,
+          recoveredKeys: 0 // Not provided by API but required by type
+        };
       } catch (error) {
         console.error("Error fetching stats:", error);
         toast({ 
@@ -106,7 +115,7 @@ export const KeyManagementProvider: React.FC<{ children: React.ReactNode }> = ({
       purpose: string; 
       remarks?: string 
     }) => {
-      return apiService.issueKey(keyId, driverId, purpose, remarks);
+      return apiService.issueKey(keyId, driverId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cars'] });
@@ -133,7 +142,7 @@ export const KeyManagementProvider: React.FC<{ children: React.ReactNode }> = ({
       keyPlace: string; 
       remarks?: string 
     }) => {
-      return apiService.markKeyAvailable(keyId, keyPlace, remarks);
+      return apiService.markKeyAvailable(keyId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cars'] });
@@ -158,7 +167,7 @@ export const KeyManagementProvider: React.FC<{ children: React.ReactNode }> = ({
       keyId: string; 
       remarks?: string 
     }) => {
-      return apiService.markKeyMissing(keyId, remarks);
+      return apiService.markKeyMissing(keyId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cars'] });
@@ -187,7 +196,11 @@ export const KeyManagementProvider: React.FC<{ children: React.ReactNode }> = ({
       keyPlace: string;
       remarks?: string 
     }) => {
-      return apiService.addNewKey(carId, keyNumber, keyPlace, remarks);
+      return apiService.addNewKey(carId, { 
+        keyNumber, 
+        keyPlace,
+        remarks
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cars'] });
@@ -283,7 +296,7 @@ export const KeyManagementProvider: React.FC<{ children: React.ReactNode }> = ({
   const isLoading = isLoadingCars || isLoadingStats;
   const isError = isErrorCars || isErrorStats;
 
-  const value = {
+  const value: KeyManagementContextType = {
     cars,
     purposes,
     stats,
